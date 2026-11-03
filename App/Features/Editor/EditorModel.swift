@@ -129,12 +129,11 @@ final class EditorModel {
 
     private func compose(videoURL: URL) async throws {
         guard let speechFile else { return }
-        let composed = try await VideoComposer.compose(
-            video: videoURL,
-            voice: speechFile,
-            effect: effectFile,
-            effectStart: effectStart
-        )
+        var clips = [AudioClip(url: speechFile)]
+        if let effectFile {
+            clips.append(AudioClip(url: effectFile, start: effectStart))
+        }
+        let composed = try await VideoComposer.compose(video: videoURL, clips: clips)
         try Task.checkCancellation()
 
         let item = AVPlayerItem(asset: composed.composition)

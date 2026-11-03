@@ -2,11 +2,34 @@ import AVFoundation
 import UIKit
 import VoiceoverKit
 
+/// One piece of audio laid over the video.
+nonisolated struct AudioClip: Equatable, Sendable {
+    let url: URL
+    /// Position on the video's timeline.
+    let start: Double
+    /// Where to begin inside the file.
+    let sourceOffset: Double
+    /// Nil plays the file to its end (or the video's end, whichever is first).
+    let duration: Double?
+    let volume: Float
+
+    init(url: URL, start: Double = 0, sourceOffset: Double = 0, duration: Double? = nil, volume: Float = 1) {
+        self.url = url
+        self.start = start
+        self.sourceOffset = sourceOffset
+        self.duration = duration
+        self.volume = volume
+    }
+}
+
 /// Everything needed to both preview (AVPlayer) and export (AVAssetExportSession) the same edit.
 nonisolated struct ComposedVideo {
     let composition: AVMutableComposition
     let audioMix: AVMutableAudioMix
-    let videoComposition: AVMutableVideoComposition
+    /// Kept as a value type so export can add the caption layers without copying an object graph.
+    let videoConfiguration: AVVideoComposition.Configuration
+
+    var videoComposition: AVVideoComposition { AVVideoComposition(configuration: videoConfiguration) }
 }
 
 /// Off the main actor: AVFoundation's async APIs take the (non-Sendable) composition across an isolation
@@ -26,11 +49,15 @@ nonisolated enum VideoComposer {
     /// Original audio stays audible under the voiceover, but quietly.
     static let originalAudioVolume: Float = 0.25
 
-    /// Lays the voice (and optional sound effect) over the picked video.
+    /// Lays `clips` over the picked video. Each clip gets its own track, so clips may overlap freely.
     /// The edit always keeps the video's length; audio that runs past the end is trimmed.
     /// Runs on the cooperative pool; the result is freshly built, so it can be sent back to the caller.
     @concurrent
-    static func compose(video: URL, voice: URL, effect: URL?, effectStart: Double) async throws -> sending ComposedVideo {
+    static func compose(
+        video: URL,
+        clips: [AudioClip],
+        originalAudioVolume: Float = originalAudioVolume
+    ) async throws -> sending ComposedVideo {
         let asset = AVURLAsset(url: video)
         let duration = try await asset.load(.duration)
         guard let sourceVideo = try await asset.loadTracks(withMediaType: .video).first else {
@@ -48,32 +75,28 @@ nonisolated enum VideoComposer {
         if let sourceAudio = try await asset.loadTracks(withMediaType: .audio).first {
             let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)!
             try track.insertTimeRange(fullRange, of: sourceAudio, at: .zero)
-            let parameters = AVMutableAudioMixInputParameters(track: track)
-            parameters.setVolume(originalAudioVolume, at: .zero)
-            mixInputs.append(parameters)
+            mixInputs.append(volume(originalAudioVolume, for: track))
         }
 
-        try await insertAudio(from: voice, into: composition, at: .zero, editDuration: duration)
-        if let effect {
-            let start = CMTime(seconds: effectStart, preferredTimescale: 600)
-            try await insertAudio(from: effect, into: composition, at: start, editDuration: duration)
+        for clip in clips {
+            if let track = try await insert(clip, into: composition, editDuration: duration) {
+                mixInputs.append(volume(clip.volume, for: track))
+            }
         }
 
         let audioMix = AVMutableAudioMix()
         audioMix.inputParameters = mixInputs
 
         // Picks up the track's preferredTransform, so portrait phone videos render upright.
-        let videoComposition = try await AVMutableVideoComposition.videoComposition(withPropertiesOf: composition)
+        let videoConfiguration = try await AVVideoComposition.Configuration(for: composition)
 
-        return ComposedVideo(composition: composition, audioMix: audioMix, videoComposition: videoComposition)
+        return ComposedVideo(composition: composition, audioMix: audioMix, videoConfiguration: videoConfiguration)
     }
 
     /// Renders the edit with burned-in captions and returns an MP4 in the temporary directory.
     static func export(_ composed: ComposedVideo, captions: [Caption]) async throws -> URL {
-        guard let videoComposition = composed.videoComposition.mutableCopy() as? AVMutableVideoComposition else {
-            throw Failure.exportUnavailable
-        }
-        let size = videoComposition.renderSize
+        var configuration = composed.videoConfiguration
+        let size = configuration.renderSize
 
         let parentLayer = CALayer()
         parentLayer.frame = CGRect(origin: .zero, size: size)
@@ -83,7 +106,7 @@ nonisolated enum VideoComposer {
         for caption in captions {
             parentLayer.addSublayer(captionLayer(for: caption, renderSize: size))
         }
-        videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(
+        configuration.animationTool = AVVideoCompositionCoreAnimationTool(
             postProcessingAsVideoLayer: videoLayer,
             in: parentLayer
         )
@@ -92,7 +115,7 @@ nonisolated enum VideoComposer {
         guard let session = AVAssetExportSession(asset: composed.composition, presetName: preset) else {
             throw Failure.exportUnavailable
         }
-        session.videoComposition = videoComposition
+        session.videoComposition = AVVideoComposition(configuration: configuration)
         session.audioMix = composed.audioMix
 
         let output = URL.temporaryDirectory.appending(path: "voiceover-\(UUID().uuidString).mp4")
@@ -102,19 +125,32 @@ nonisolated enum VideoComposer {
 
     // MARK: - Private
 
-    private static func insertAudio(
-        from url: URL,
+    private static func volume(_ volume: Float, for track: AVCompositionTrack) -> AVMutableAudioMixInputParameters {
+        let parameters = AVMutableAudioMixInputParameters(track: track)
+        parameters.setVolume(volume, at: .zero)
+        return parameters
+    }
+
+    /// Adds the clip on its own track. Returns nil when nothing of it falls inside the edit.
+    private static func insert(
+        _ clip: AudioClip,
         into composition: AVMutableComposition,
-        at start: CMTime,
         editDuration: CMTime
-    ) async throws {
-        let asset = AVURLAsset(url: url)
-        guard let source = try await asset.loadTracks(withMediaType: .audio).first else { return }
-        let available = CMTimeMinimum(try await asset.load(.duration), editDuration - start)
-        guard available > .zero else { return }
+    ) async throws -> AVMutableCompositionTrack? {
+        let asset = AVURLAsset(url: clip.url)
+        guard let source = try await asset.loadTracks(withMediaType: .audio).first else { return nil }
+
+        let start = CMTime(seconds: clip.start, preferredTimescale: 600)
+        let offset = CMTime(seconds: clip.sourceOffset, preferredTimescale: 600)
+        var available = CMTimeMinimum(try await asset.load(.duration) - offset, editDuration - start)
+        if let duration = clip.duration {
+            available = CMTimeMinimum(available, CMTime(seconds: duration, preferredTimescale: 600))
+        }
+        guard available > .zero else { return nil }
 
         let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)!
-        try track.insertTimeRange(CMTimeRange(start: .zero, duration: available), of: source, at: start)
+        try track.insertTimeRange(CMTimeRange(start: offset, duration: available), of: source, at: start)
+        return track
     }
 
     /// One text layer per caption, visible only between its start and end.
