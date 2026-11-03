@@ -17,7 +17,14 @@ struct EditorView: View {
                     apiKeyBanner
                 }
                 videoSection
-                scriptSection
+                modeSection
+                switch model.mode {
+                case .type:
+                    scriptSection
+                case .record:
+                    CharactersSection(project: model.project, client: model.client)
+                    TakesSection(project: model.project) { model.delete($0) }
+                }
                 effectSection
                 resultSection
             }
@@ -70,6 +77,20 @@ struct EditorView: View {
         }
     }
 
+    private var modeSection: some View {
+        Section {
+            Picker("Mode", selection: $model.mode) {
+                Text("Record").tag(EditorModel.Mode.record)
+                Text("Type").tag(EditorModel.Mode.type)
+            }
+            .pickerStyle(.segmented)
+        } footer: {
+            Text(model.mode == .record
+                ? "Speak over the video in your own voice, then swap it for an ElevenLabs voice."
+                : "Write a script and let an ElevenLabs voice read it.")
+        }
+    }
+
     private var scriptSection: some View {
         Section {
             TextField("What should the voice say?", text: $model.script, axis: .vertical)
@@ -110,8 +131,20 @@ struct EditorView: View {
                     .aspectRatio(9 / 16, contentMode: .fit)
                     .frame(maxHeight: 460)
                     .listRowInsets(EdgeInsets())
+                    .overlay(alignment: .topLeading) {
+                        if model.isRecording {
+                            Label("REC", systemImage: "record.circle.fill")
+                                .font(.caption.bold())
+                                .foregroundStyle(.white)
+                                .padding(6)
+                                .background(.red, in: .capsule)
+                                .padding(10)
+                        }
+                    }
 
-                if let url = model.exportedURL {
+                if !model.hasResult {
+                    EmptyView()
+                } else if let url = model.exportedURL {
                     ShareLink(item: url) {
                         Label("Share or save video", systemImage: "square.and.arrow.up")
                     }
@@ -127,7 +160,16 @@ struct EditorView: View {
 
     private var primaryButton: some View {
         Group {
-            if let activity = model.activity {
+            if model.isRecording {
+                Button {
+                    model.stopRecording()
+                } label: {
+                    Label("Stop", systemImage: "stop.fill").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+                .controlSize(.large)
+            } else if let activity = model.activity {
                 HStack(spacing: 12) {
                     ProgressView()
                     Text(activityTitle(activity))
@@ -135,19 +177,39 @@ struct EditorView: View {
                     Button("Cancel", role: .cancel) { model.cancel() }
                 }
             } else {
-                Button {
-                    model.generate()
-                } label: {
-                    Label(model.hasResult ? "Regenerate" : "Generate voiceover", systemImage: "waveform")
-                        .frame(maxWidth: .infinity)
+                switch model.mode {
+                case .record:
+                    Button {
+                        model.startRecording()
+                    } label: {
+                        Label(recordTitle, systemImage: "record.circle").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                    .controlSize(.large)
+                    .disabled(!model.canRecord)
+                case .type:
+                    Button {
+                        model.generate()
+                    } label: {
+                        Label(model.hasResult ? "Regenerate" : "Generate voiceover", systemImage: "waveform")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(!model.canGenerate || !app.hasAPIKey)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(!model.canGenerate || !app.hasAPIKey)
             }
         }
         .padding()
         .background(.bar)
+    }
+
+    private var recordTitle: String {
+        if let name = model.project.activeCharacter?.name, !name.isEmpty {
+            return "Record as \(name)"
+        }
+        return "Record"
     }
 
     private func activityTitle(_ activity: EditorModel.Activity) -> String {

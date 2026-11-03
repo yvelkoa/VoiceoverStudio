@@ -5,6 +5,13 @@ import VoiceoverKit
 
 @Observable
 final class EditorModel {
+    enum Mode: Hashable {
+        /// Type a script; ElevenLabs reads it.
+        case type
+        /// Record takes with the microphone; ElevenLabs swaps the voice later.
+        case record
+    }
+
     enum Activity: Equatable {
         case generating, composing, exporting
     }
@@ -17,15 +24,18 @@ final class EditorModel {
         var retry: (() -> Void)?
     }
 
-    // Input
+    var mode: Mode = .record {
+        didSet { if mode != oldValue { recompose() } }
+    }
+
+    let project = Project()
+    let recorder = TakeRecorder()
+
+    // Type mode input
     var script = ""
     var voice: Voice?
-    var effectPrompt = ""
-    var effectStart: Double = 0
 
     // Output
-    private(set) var videoURL: URL?
-    private(set) var videoDuration: Double = 0
     private(set) var captions: [Caption] = []
     private(set) var player: AVPlayer?
     private(set) var exportedURL: URL?
@@ -39,29 +49,55 @@ final class EditorModel {
     private var effectFile: URL?
     private var composed: ComposedVideo?
     private var work: Task<Void, Never>?
+    private var recordingStart: Double = 0
 
     init(client: ElevenLabsClient) {
         self.client = client
+    }
+
+    var videoURL: URL? { project.videoURL }
+    var videoDuration: Double { project.videoDuration }
+    var effectStart: Double {
+        get { project.effectStart }
+        set { project.effectStart = newValue }
+    }
+    var effectPrompt: String {
+        get { project.effectPrompt }
+        set { project.effectPrompt = newValue }
     }
 
     var canGenerate: Bool {
         videoURL != nil && voice != nil && !trimmedScript.isEmpty && activity == nil
     }
 
-    var hasResult: Bool { composed != nil }
+    var canRecord: Bool {
+        player != nil && project.activeCharacter != nil && activity == nil
+    }
+
+    var isRecording: Bool { recorder.isRecording }
+
+    /// Something worth exporting: generated speech in Type mode, at least one take in Record mode.
+    var hasResult: Bool {
+        switch mode {
+        case .type: speechFile != nil
+        case .record: !project.takes.isEmpty
+        }
+    }
 
     private var trimmedScript: String { script.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var trimmedEffectPrompt: String { effectPrompt.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    // MARK: - Actions
+    // MARK: - Video
 
     func setVideo(_ url: URL) async {
         cancel()
         resetResult()
-        videoURL = url
-        videoDuration = (try? await AVURLAsset(url: url).load(.duration).seconds) ?? 0
-        effectStart = min(effectStart, videoDuration)
+        let duration = (try? await AVURLAsset(url: url).load(.duration).seconds) ?? 0
+        project.setVideo(url, duration: duration)
+        recompose()
     }
+
+    // MARK: - Type mode
 
     func generate() {
         guard canGenerate, let videoURL, let voice else { return }
@@ -82,16 +118,58 @@ final class EditorModel {
         }
     }
 
-    /// Re-builds the edit after the sound effect was moved; no network involved.
-    func applyEffectStart() {
-        guard let videoURL, speechFile != nil, effectFile != nil else { return }
+    // MARK: - Record mode
+
+    func startRecording() {
+        guard canRecord, let player else { return }
+        Task {
+            guard await recorder.requestPermission() else {
+                failure = Failure(message: TakeRecorder.Failure.microphoneDenied.localizedDescription, recovery: .none)
+                return
+            }
+            do {
+                recordingStart = player.currentTime().seconds
+                // The video is silenced while recording so the microphone doesn't pick it up.
+                player.isMuted = true
+                _ = try recorder.start()
+                player.play()
+            } catch {
+                player.isMuted = false
+                failure = Failure(message: error.localizedDescription, recovery: .none)
+            }
+        }
+    }
+
+    func stopRecording() {
+        guard isRecording, let player, let character = project.activeCharacter else { return }
+        player.pause()
+        player.isMuted = false
+        let duration = recorder.stop()
+        guard let url = recorder.lastRecordingURL, duration >= TakeResolver.minimumDuration else { return }
+        project.addTake(characterID: character.id, start: recordingStart, duration: duration, recording: url)
+        player.seek(to: CMTime(seconds: recordingStart, preferredTimescale: 600))
+        recompose()
+    }
+
+    func delete(_ take: Take) {
+        project.remove(take)
+        recompose()
+    }
+
+    // MARK: - Shared
+
+    /// Re-builds the edit after something moved; no network involved.
+    func recompose() {
+        guard let videoURL else { return }
         run(.composing) {
             try await self.compose(videoURL: videoURL)
         }
     }
 
+    func applyEffectStart() { recompose() }
+
     func export() {
-        guard let composed else { return }
+        guard let composed, hasResult else { return }
         let captions = captions
         run(.exporting) {
             self.exportedURL = try await VideoComposer.export(composed, captions: captions)
@@ -128,12 +206,15 @@ final class EditorModel {
     }
 
     private func compose(videoURL: URL) async throws {
-        guard let speechFile else { return }
-        var clips = [AudioClip(url: speechFile)]
-        if let effectFile {
-            clips.append(AudioClip(url: effectFile, start: effectStart))
-        }
-        let composed = try await VideoComposer.compose(video: videoURL, clips: clips)
+        let clips = voiceClips() + effectClips()
+        let wasPlaying = player?.rate ?? 0 > 0
+        let resumeAt = player?.currentTime()
+
+        let composed = try await VideoComposer.compose(
+            video: videoURL,
+            clips: clips,
+            originalAudioVolume: clips.isEmpty ? 1 : VideoComposer.originalAudioVolume
+        )
         try Task.checkCancellation()
 
         let item = AVPlayerItem(asset: composed.composition)
@@ -143,9 +224,30 @@ final class EditorModel {
         exportedURL = nil
         if let player {
             player.replaceCurrentItem(with: item)
+            if let resumeAt { await player.seek(to: resumeAt) }
+            if wasPlaying { player.play() }
         } else {
             player = AVPlayer(playerItem: item)
         }
+    }
+
+    private func voiceClips() -> [AudioClip] {
+        switch mode {
+        case .type:
+            return speechFile.map { [AudioClip(url: $0)] } ?? []
+        case .record:
+            let takes = Dictionary(uniqueKeysWithValues: project.takes.map { ($0.id, $0) })
+            return project.segments.compactMap { segment in
+                guard let take = takes[segment.takeID] else { return nil }
+                // Converted audio keeps the take's timing, so the same offsets apply to it.
+                let url = project.convertedAudio[take.id] ?? take.recording
+                return AudioClip(url: url, start: segment.start, sourceOffset: segment.sourceOffset, duration: segment.duration)
+            }
+        }
+    }
+
+    private func effectClips() -> [AudioClip] {
+        effectFile.map { [AudioClip(url: $0, start: effectStart)] } ?? []
     }
 
     private func resetResult() {
