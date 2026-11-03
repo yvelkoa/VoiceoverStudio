@@ -1,49 +1,5 @@
 import Foundation
 
-/// One recorded pass of the microphone, placed on the timeline for one character.
-public struct Take: Identifiable, Equatable, Sendable {
-    public let id: UUID
-    public var characterID: UUID
-    /// Where the recording starts on the video's timeline, in seconds.
-    public var start: Double
-    public var duration: Double
-    public var recording: URL
-    /// Recording order. A later take replaces earlier ones where they overlap.
-    public var sequence: Int
-
-    public init(id: UUID = UUID(), characterID: UUID, start: Double, duration: Double, recording: URL, sequence: Int) {
-        self.id = id
-        self.characterID = characterID
-        self.start = start
-        self.duration = duration
-        self.recording = recording
-        self.sequence = sequence
-    }
-
-    public var end: Double { start + duration }
-}
-
-/// A slice of a take that survives overlap resolution and goes into the mix.
-public struct AudioSegment: Equatable, Sendable {
-    public let takeID: Take.ID
-    public let characterID: UUID
-    /// Position on the timeline.
-    public let start: Double
-    /// Offset into the take's recording where this slice begins.
-    public let sourceOffset: Double
-    public let duration: Double
-
-    public init(takeID: Take.ID, characterID: UUID, start: Double, sourceOffset: Double, duration: Double) {
-        self.takeID = takeID
-        self.characterID = characterID
-        self.start = start
-        self.sourceOffset = sourceOffset
-        self.duration = duration
-    }
-
-    public var end: Double { start + duration }
-}
-
 /// Resolves overlapping takes into the segments that are actually heard.
 ///
 /// A character can't talk over themselves, so within one character the most recent take wins wherever

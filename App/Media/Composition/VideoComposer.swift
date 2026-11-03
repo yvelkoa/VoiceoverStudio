@@ -2,69 +2,6 @@ import AVFoundation
 import UIKit
 import VoiceoverKit
 
-/// What an audio track carries, so the mix can set one level per kind.
-nonisolated enum AudioKind: Hashable, Sendable {
-    case original, voice, effect
-}
-
-/// Levels per kind, 0...1.
-nonisolated struct MixLevels: Equatable, Codable, Sendable {
-    var original: Float = 0.25
-    var voice: Float = 1
-    var effect: Float = 0.8
-
-    func level(for kind: AudioKind) -> Float {
-        switch kind {
-        case .original: original
-        case .voice: voice
-        case .effect: effect
-        }
-    }
-}
-
-/// One piece of audio laid over the video.
-nonisolated struct AudioClip: Equatable, Sendable {
-    let url: URL
-    let kind: AudioKind
-    /// Position on the video's timeline.
-    let start: Double
-    /// Where to begin inside the file.
-    let sourceOffset: Double
-    /// Nil plays the file to its end (or the video's end, whichever is first).
-    let duration: Double?
-
-    init(url: URL, kind: AudioKind, start: Double = 0, sourceOffset: Double = 0, duration: Double? = nil) {
-        self.url = url
-        self.kind = kind
-        self.start = start
-        self.sourceOffset = sourceOffset
-        self.duration = duration
-    }
-}
-
-/// Everything needed to both preview (AVPlayer) and export (AVAssetExportSession) the same edit.
-nonisolated struct ComposedVideo {
-    let composition: AVMutableComposition
-    /// Which kind each audio track carries; the mix is rebuilt from this whenever a level changes.
-    let trackKinds: [CMPersistentTrackID: AudioKind]
-    /// Kept as a value type so export can add the caption layers without copying an object graph.
-    let videoConfiguration: AVVideoComposition.Configuration
-
-    var videoComposition: AVVideoComposition { AVVideoComposition(configuration: videoConfiguration) }
-
-    /// A fresh mix at the given levels. Cheap: no media is touched, so it can follow a slider live.
-    func audioMix(_ levels: MixLevels) -> AVMutableAudioMix {
-        let mix = AVMutableAudioMix()
-        mix.inputParameters = composition.tracks(withMediaType: .audio).compactMap { track in
-            guard let kind = trackKinds[track.trackID] else { return nil }
-            let parameters = AVMutableAudioMixInputParameters(track: track)
-            parameters.setVolume(levels.level(for: kind), at: .zero)
-            return parameters
-        }
-        return mix
-    }
-}
-
 /// Off the main actor: AVFoundation's async APIs take the (non-Sendable) composition across an isolation
 /// boundary, which strict concurrency rejects from a main-actor context.
 nonisolated enum VideoComposer {
