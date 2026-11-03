@@ -6,10 +6,10 @@ struct EditorView: View {
     @Bindable var model: EditorModel
     @Environment(AppModel.self) private var app
 
-    @State private var pickedItem: PhotosPickerItem?
-    @State private var isLoadingVideo = false
-    @State private var showsSettings = false
-    @State private var showsRecorder = false
+    @State var pickedItem: PhotosPickerItem?
+    @State var isLoadingVideo = false
+    @State var showsSettings = false
+    @State var showsRecorder = false
 
     var body: some View {
         NavigationStack {
@@ -42,7 +42,18 @@ struct EditorView: View {
                 failureAlert(failure)
             }
             .onChange(of: pickedItem) { _, item in loadVideo(item) }
+            .task { await loadDebugVideo() }
         }
+    }
+
+    /// Development aid: `VOICEOVER_DEBUG_VIDEO=/path/to.mov` loads a video and opens the recorder on launch,
+    /// so the recording screen can be exercised on a simulator without going through Photos.
+    private func loadDebugVideo() async {
+        #if DEBUG
+        guard let path = ProcessInfo.processInfo.environment["VOICEOVER_DEBUG_VIDEO"], model.videoURL == nil else { return }
+        await model.setVideo(URL(fileURLWithPath: path))
+        showsRecorder = true
+        #endif
     }
 
     // MARK: - Sections
@@ -235,44 +246,6 @@ struct EditorView: View {
         case .composing: "Updating preview…"
         case .exporting: "Exporting…"
         case .swapping: "Swapping voices…"
-        }
-    }
-
-    // MARK: - Helpers
-
-    private func loadVideo(_ item: PhotosPickerItem?) {
-        guard let item else { return }
-        isLoadingVideo = true
-        Task {
-            defer { isLoadingVideo = false }
-            do {
-                if let movie = try await item.loadTransferable(type: PickedMovie.self) {
-                    await model.setVideo(movie.url)
-                }
-            } catch {
-                model.failure = .init(message: "Couldn't load this video.", recovery: .none)
-            }
-        }
-    }
-
-    private func failureAlert(_ failure: EditorModel.Failure) -> Alert {
-        switch failure.recovery {
-        case .openSettings:
-            Alert(
-                title: Text("Something went wrong"),
-                message: Text(failure.message),
-                primaryButton: .default(Text("Open Settings")) { showsSettings = true },
-                secondaryButton: .cancel()
-            )
-        case .retry:
-            Alert(
-                title: Text("Something went wrong"),
-                message: Text(failure.message),
-                primaryButton: .default(Text("Retry")) { failure.retry?() },
-                secondaryButton: .cancel()
-            )
-        case .editInput, .none:
-            Alert(title: Text("Something went wrong"), message: Text(failure.message))
         }
     }
 }

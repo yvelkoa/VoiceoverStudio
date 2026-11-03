@@ -192,11 +192,12 @@ flowchart LR
 3. Run on an iOS 26+ simulator or device, open Settings and paste the key. Pick the recording language
    there too if it differs from the device language.
 
-Tests: `swift test --package-path Packages/VoiceoverKit`. Lint: `swiftlint lint --strict`.
+`Scripts/check.sh` runs lint, the package tests and a simulator build. `Scripts/install-sim.sh [video]`
+reinstalls the debug build on the booted simulator; with a video path it opens the recorder directly.
 
 ## Roadmap
 
-- Timeline strip: frame thumbnails, one lane per character, drag to move a take
+- Drag a take along its lane to move it
 - Trim silence at the edges of a take
 - Remove filler words via on-device Foundation Models, cutting the audio by word timing
 - Hear other characters' takes while recording a reply
