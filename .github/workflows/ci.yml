@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests (VoiceoverKit)
+        run: swift test --package-path Packages/VoiceoverKit
+      - name: Build app
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          xcodebuild build \
+            -project VoiceoverStudio.xcodeproj \
+            -scheme VoiceoverStudio \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO

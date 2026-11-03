@@ -1,0 +1,18 @@
+{
+  "voices": [
+    {
+      "voice_id": "voice_b",
+      "name": "Rachel",
+      "category": "premade",
+      "labels": { "accent": "american", "age": "young", "gender": "female", "use_case": "narration" },
+      "preview_url": "https://example.com/rachel.mp3"
+    },
+    {
+      "voice_id": "voice_a",
+      "name": "adam",
+      "category": "premade",
+      "labels": { "accent": "american", "weird": 3 },
+      "preview_url": null
+    }
+  ]
+}

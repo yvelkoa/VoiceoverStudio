@@ -1,0 +1,9 @@
+{
+  "audio_base64": "SUQz",
+  "alignment": {
+    "characters": ["H", "i", " ", "t", "h", "e", "r", "e", "."],
+    "character_start_times_seconds": [0.0, 0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55],
+    "character_end_times_seconds": [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]
+  },
+  "normalized_alignment": null
+}
