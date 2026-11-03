@@ -9,6 +9,7 @@ struct EditorView: View {
     @State private var pickedItem: PhotosPickerItem?
     @State private var isLoadingVideo = false
     @State private var showsSettings = false
+    @State private var showsRecorder = false
 
     var body: some View {
         NavigationStack {
@@ -36,6 +37,7 @@ struct EditorView: View {
             }
             .safeAreaInset(edge: .bottom) { primaryButton }
             .sheet(isPresented: $showsSettings) { SettingsView() }
+            .fullScreenCover(isPresented: $showsRecorder) { RecordingView(model: model) }
             .alert(item: $model.failure) { failure in
                 failureAlert(failure)
             }
@@ -181,13 +183,13 @@ struct EditorView: View {
                 case .record:
                     HStack(spacing: 12) {
                         Button {
-                            model.startRecording()
+                            showsRecorder = true
                         } label: {
                             Label(recordTitle, systemImage: "record.circle").frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.red)
-                        .disabled(!model.canRecord)
+                        .disabled(model.player == nil)
 
                         if model.canSwapVoices {
                             Button {
@@ -224,10 +226,7 @@ struct EditorView: View {
     }
 
     private var recordTitle: String {
-        if let name = model.project.activeCharacter?.name, !name.isEmpty {
-            return "Record as \(name)"
-        }
-        return "Record"
+        model.project.takes.isEmpty ? "Record takes" : "Record more"
     }
 
     private func activityTitle(_ activity: EditorModel.Activity) -> String {
