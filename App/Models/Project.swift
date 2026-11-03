@@ -10,7 +10,9 @@ final class Project: Identifiable {
     let folder: URL
     var title: String
     let createdAt: Date
-    var updatedAt: Date
+    /// As loaded from disk. The store stamps the current time into the manifest on every save and never
+    /// writes it back here, so that saving does not count as a change (see `ProjectAutosaver`).
+    let updatedAt: Date
 
     private(set) var videoURL: URL?
     private(set) var videoDuration: Double = 0

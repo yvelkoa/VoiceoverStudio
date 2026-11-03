@@ -35,6 +35,7 @@ final class ProjectAutosaver {
     }
 
     private func schedule() {
+        guard isActive else { return }
         pending?.cancel()
         pending = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(600))

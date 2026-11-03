@@ -50,3 +50,5 @@ Honest list for the next review. Each item says why it is still there.
 5. `onDisappear` fires when a child is pushed; use lifetime (`isolated deinit`) for teardown.
 6. A missing key permission looks like a rejected key unless `missing_permissions` is handled.
 7. Shell: a `;` after a failing build still runs the commit. Use a script with `set -e`.
+8. Anything the autosaver tracks must not be written by the save itself (`updatedAt` write-back looped
+   every 600 ms).

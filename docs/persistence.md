@@ -48,6 +48,11 @@ waveform loads. Missing files degrade gracefully: a clip whose file is gone is s
 `onChange` schedules a save 600 ms later (debounced) and re-registers. `stop()` cancels the pending save and
 writes once more; it is called from `EditorModel`'s `isolated deinit`. There is no Save button anywhere.
 
+The one rule this imposes on `ProjectStore.save`: **never write back into the project**. The first version
+set `project.updatedAt` after each write; `updatedAt` is part of `document`, so the save itself counted as a
+change and the manifest was rewritten every 600 ms for as long as the editor was open. `updatedAt` on `Project`
+is now a `let` loaded from disk, and the store stamps the time into the manifest only.
+
 ## Invalidation rules (where files get deleted)
 
 | Event | Dropped |

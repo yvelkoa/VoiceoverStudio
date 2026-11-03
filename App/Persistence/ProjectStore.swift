@@ -47,6 +47,8 @@ final class ProjectStore {
     }
 
     /// Writes the manifest atomically and refreshes the list entry.
+    /// Deliberately does not write anything back into `project`: the autosaver tracks every persisted
+    /// property, so a write-back here (e.g. `updatedAt`) would schedule the next save and loop forever.
     func save(_ project: Project) throws {
         var document = project.document
         document.updatedAt = .now
@@ -54,7 +56,6 @@ final class ProjectStore {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         try encoder.encode(document).write(to: project.folder.appending(path: ProjectDocument.fileName), options: .atomic)
-        project.updatedAt = document.updatedAt
 
         let summary = ProjectSummary(document: document, folder: project.folder)
         summaries.removeAll { $0.id == summary.id }
