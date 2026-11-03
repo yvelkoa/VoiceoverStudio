@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1D514E48379FA4047B254C14 /* PickedMovie.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6703BCA694A4E80A45435583 /* PickedMovie.swift */; };
+		279EFF3529A98DA62B16BAAE /* EditorModel+Effects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EECA9CB4A47C63BD845F2A2 /* EditorModel+Effects.swift */; };
 		2B4D16083957E0627486C8F7 /* FrameStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16C768AA28EE4539A4F01172 /* FrameStrip.swift */; };
 		2E519FBFC19F42AC501270D8 /* RecordingSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72E3FF3B6EAF6204B1EE2757 /* RecordingSections.swift */; };
 		312818AF50435F783C381A30 /* PlayerLayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CA4EF7668BB4B972F3DFF76 /* PlayerLayerView.swift */; };
@@ -44,6 +45,7 @@
 		72E3FF3B6EAF6204B1EE2757 /* RecordingSections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSections.swift; sourceTree = "<group>"; };
 		7B406D41D1C09D5729D6DCB2 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
 		8050AF81B0DA33C21552A7BA /* VoicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerView.swift; sourceTree = "<group>"; };
+		9EECA9CB4A47C63BD845F2A2 /* EditorModel+Effects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorModel+Effects.swift"; sourceTree = "<group>"; };
 		A117494EC154091D4CC11864 /* VoiceSwapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceSwapper.swift; sourceTree = "<group>"; };
 		A20F095079C99E0F7083EF59 /* TakeRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TakeRecorder.swift; sourceTree = "<group>"; };
 		A44ACB303CAFA2EBF84C518F /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
@@ -154,6 +156,7 @@
 			isa = PBXGroup;
 			children = (
 				EB28000AFE90E49A39327B1B /* EditorModel.swift */,
+				9EECA9CB4A47C63BD845F2A2 /* EditorModel+Effects.swift */,
 				33C9106D63BEF1AB64B06299 /* EditorModel+Recording.swift */,
 				7B406D41D1C09D5729D6DCB2 /* EditorView.swift */,
 				D62BAC0741CD950254F2526E /* EditorView+Helpers.swift */,
@@ -245,6 +248,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BC9FF70FCB9BABD5E3370B0B /* AppModel.swift in Sources */,
+				279EFF3529A98DA62B16BAAE /* EditorModel+Effects.swift in Sources */,
 				358F6D2191F51445EE8A8B23 /* EditorModel+Recording.swift in Sources */,
 				761D2B563513BD5C5F089E91 /* EditorModel.swift in Sources */,
 				4A1B7DEF94445A80237F74CD /* EditorView+Helpers.swift in Sources */,

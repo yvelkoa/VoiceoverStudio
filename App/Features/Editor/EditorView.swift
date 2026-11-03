@@ -26,9 +26,8 @@ struct EditorView: View {
                     CharactersSection(project: model.project, client: model.client)
                     TakesSection(project: model.project) { model.delete($0) }
                 }
-                effectSection
                 if model.player != nil {
-                    MixSection(project: model.project) { model.recompose() }
+                    MixSection(project: model.project) { model.applyMix() }
                 }
                 resultSection
             }
@@ -120,22 +119,6 @@ struct EditorView: View {
             Text("Voiceover")
         } footer: {
             Text("\(model.script.count) characters. Each character uses one ElevenLabs credit.")
-        }
-    }
-
-    private var effectSection: some View {
-        Section {
-            TextField("e.g. distant thunder, crowd cheering", text: $model.effectPrompt)
-            if model.videoDuration > 0 {
-                VStack(alignment: .leading) {
-                    LabeledContent("Starts at", value: model.effectStart.formatted(.number.precision(.fractionLength(1))) + " s")
-                    Slider(value: $model.effectStart, in: 0...model.videoDuration) { editing in
-                        if !editing { model.applyEffectStart() }
-                    }
-                }
-            }
-        } header: {
-            Text("Sound effect (optional)")
         }
     }
 
@@ -240,6 +223,7 @@ struct EditorView: View {
     private func activityTitle(_ activity: EditorModel.Activity) -> String {
         switch activity {
         case .generating: "Generating voice…"
+        case .generatingEffect: "Generating sound effect…"
         case .composing: "Updating preview…"
         case .exporting: "Exporting…"
         case .swapping: "Swapping voices…"

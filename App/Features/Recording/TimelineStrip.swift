@@ -15,6 +15,8 @@ struct TimelineStrip: View {
     /// A take in progress, drawn in full colour and growing as the level comes in.
     let liveRecording: LiveRecording?
     let characters: [Character]
+    let effects: [SoundEffect]
+    let onDeleteEffect: (SoundEffect) -> Void
     /// The time to show when the player is not running (after a seek, a stop, or on first appearance).
     let currentTime: Double
     let isPlaying: Bool
@@ -32,8 +34,10 @@ struct TimelineStrip: View {
 
     private var pointsPerSecond: CGFloat { Self.pointsPerSecond }
     private var contentWidth: CGFloat { CGFloat(duration) * pointsPerSecond }
+    static let effectColor = Color.yellow
+
     private var lanesHeight: CGFloat {
-        CGFloat(max(characters.count, 1)) * (Self.laneHeight + Self.laneSpacing)
+        CGFloat(max(characters.count, 1) + 1) * (Self.laneHeight + Self.laneSpacing)
     }
 
     var body: some View {
@@ -133,6 +137,46 @@ struct TimelineStrip: View {
                         .offset(x: CGFloat(live.start) * pointsPerSecond)
                     }
                 }
+            }
+            effectsLane
+        }
+    }
+
+    /// Generated sounds share one lane; long-press a clip to delete it.
+    private var effectsLane: some View {
+        ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(.quaternary)
+                .frame(width: contentWidth, height: Self.laneHeight)
+                .overlay(alignment: .leading) {
+                    if effects.isEmpty {
+                        Label("Effects", systemImage: "sparkles")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 6)
+                    }
+                }
+            ForEach(effects) { effect in
+                SegmentView(
+                    segment: AudioSegment(
+                        takeID: effect.id, characterID: effect.id, start: effect.start, sourceOffset: 0, duration: effect.duration
+                    ),
+                    waveform: waveforms[effect.id],
+                    color: Self.effectColor,
+                    pointsPerSecond: pointsPerSecond
+                )
+                .overlay(alignment: .leading) {
+                    Text(effect.prompt)
+                        .font(.caption2)
+                        .lineLimit(1)
+                        .foregroundStyle(.primary)
+                        .padding(.leading, 4)
+                        .frame(maxWidth: CGFloat(effect.duration) * pointsPerSecond - 4, alignment: .leading)
+                }
+                .contextMenu {
+                    Button("Delete effect", systemImage: "trash", role: .destructive) { onDeleteEffect(effect) }
+                }
+                .offset(x: CGFloat(effect.start) * pointsPerSecond)
             }
         }
     }

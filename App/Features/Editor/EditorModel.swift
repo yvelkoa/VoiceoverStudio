@@ -13,7 +13,7 @@ final class EditorModel {
     }
 
     enum Activity: Equatable {
-        case generating, composing, exporting, swapping
+        case generating, generatingEffect, composing, exporting, swapping
     }
 
     struct Failure: Identifiable {
@@ -67,14 +67,6 @@ final class EditorModel {
 
     var videoURL: URL? { project.videoURL }
     var videoDuration: Double { project.videoDuration }
-    var effectStart: Double {
-        get { project.effectStart }
-        set { project.effectStart = newValue }
-    }
-    var effectPrompt: String {
-        get { project.effectPrompt }
-        set { project.effectPrompt = newValue }
-    }
 
     var canGenerate: Bool {
         videoURL != nil && voice != nil && !trimmedScript.isEmpty && activity == nil
@@ -99,7 +91,6 @@ final class EditorModel {
     }
 
     private var trimmedScript: String { script.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var trimmedEffectPrompt: String { effectPrompt.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     // MARK: - Video
 
@@ -116,17 +107,11 @@ final class EditorModel {
     func generate() {
         guard canGenerate, let videoURL, let voice else { return }
         let script = trimmedScript
-        let effectPrompt = trimmedEffectPrompt
         resetResult()
 
         run(.generating) { [client] in
-            // Voice and sound effect don't depend on each other, so request them in parallel.
-            async let speech = client.speech(text: script, voiceID: voice.voiceID)
-            async let effect = Self.effect(prompt: effectPrompt, client: client)
-            let (generatedSpeech, effectData) = try await (speech, effect)
-
+            let generatedSpeech = try await client.speech(text: script, voiceID: voice.voiceID)
             self.speechFile = try Self.write(generatedSpeech.audio, name: "speech")
-            self.effectFile = try effectData.map { try Self.write($0, name: "effect") }
             self.typeCaptions = CaptionBuilder.captions(from: generatedSpeech.alignment)
             self.captions = self.typeCaptions
             try await self.compose(videoURL: videoURL)
@@ -143,13 +128,18 @@ final class EditorModel {
         }
     }
 
-    func applyEffectStart() { recompose() }
+    /// Pushes the project's mix levels onto the playing item without rebuilding anything.
+    func applyMix() {
+        guard let composed else { return }
+        player?.currentItem?.audioMix = composed.audioMix(project.mix)
+    }
 
     func export() {
         guard let composed, hasResult else { return }
         let captions = captions
+        let levels = project.mix
         run(.exporting) {
-            self.exportedURL = try await VideoComposer.export(composed, captions: captions)
+            self.exportedURL = try await VideoComposer.export(composed, captions: captions, levels: levels)
         }
     }
 
@@ -187,18 +177,16 @@ final class EditorModel {
         let wasPlaying = player?.rate ?? 0 > 0
         let resumeAt = player?.currentTime()
 
-        let composed = try await VideoComposer.compose(
-            video: videoURL,
-            clips: clips,
-            originalAudioVolume: clips.isEmpty ? 1 : project.originalAudioVolume
-        )
+        let composed = try await VideoComposer.compose(video: videoURL, clips: clips)
         try Task.checkCancellation()
 
         // No video composition for the preview: AVPlayer applies the track's preferredTransform itself and
         // captions are a SwiftUI overlay. The compositor is only needed for the export, and in the simulator
         // its frames can't be displayed by AVPlayerLayer at all (IQ-CA error -19230, black video).
         let item = AVPlayerItem(asset: composed.composition)
-        item.audioMix = composed.audioMix
+        var levels = project.mix
+        if clips.isEmpty { levels.original = 1 } // nothing to duck under yet
+        item.audioMix = composed.audioMix(levels)
         self.composed = composed
         exportedURL = nil
         if let player {
@@ -211,10 +199,9 @@ final class EditorModel {
     }
 
     private func voiceClips() -> [AudioClip] {
-        let volume = project.voiceVolume
         switch mode {
         case .type:
-            return speechFile.map { [AudioClip(url: $0, volume: volume)] } ?? []
+            return speechFile.map { [AudioClip(url: $0, kind: .voice)] } ?? []
         case .record:
             let takes = Dictionary(uniqueKeysWithValues: project.takes.map { ($0.id, $0) })
             return project.segments.compactMap { segment in
@@ -223,17 +210,17 @@ final class EditorModel {
                 let url = project.convertedAudio[take.id] ?? take.recording
                 return AudioClip(
                     url: url,
+                    kind: .voice,
                     start: segment.start,
                     sourceOffset: segment.sourceOffset,
-                    duration: segment.duration,
-                    volume: volume
+                    duration: segment.duration
                 )
             }
         }
     }
 
     private func effectClips() -> [AudioClip] {
-        effectFile.map { [AudioClip(url: $0, start: effectStart)] } ?? []
+        project.effects.map { AudioClip(url: $0.audio, kind: .effect, start: $0.start) }
     }
 
     private func resetResult() {
@@ -244,15 +231,9 @@ final class EditorModel {
         typeCaptions = []
         exportedURL = nil
         speechFile = nil
-        effectFile = nil
     }
 
-    nonisolated private static func effect(prompt: String, client: ElevenLabsClient) async throws -> Data? {
-        guard !prompt.isEmpty else { return nil }
-        return try await client.soundEffect(prompt: prompt)
-    }
-
-    nonisolated private static func write(_ data: Data, name: String) throws -> URL {
+    nonisolated static func write(_ data: Data, name: String) throws -> URL {
         let url = URL.temporaryDirectory.appending(path: "\(name)-\(UUID().uuidString).mp3")
         try data.write(to: url)
         return url

@@ -7,10 +7,10 @@ other. Powered by the [ElevenLabs API](https://elevenlabs.io/docs) and on-device
 <!-- TODO: demo GIF (pick clip → record takes → swap voices → export) -->
 
 **Record mode:** pick a video → add characters and give each a voice → scrub to a moment, press Record,
-speak, stop; repeat per line and per character → Swap voices → preview with live captions → export an
-MP4 with captions burned in.
+speak, stop; repeat per line and per character → drop generated sound effects on their own lane → Swap
+voices → export an MP4 with captions burned in.
 
-**Type mode:** write a script, pick a voice, optionally describe a sound effect, generate, export.
+**Type mode:** write a script, pick a voice, generate, export.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ flowchart LR
         Recorder["TakeRecorder<br/>AVAudioRecorder → .m4a"]
         Transcriber["Transcriber<br/>SpeechTranscriber (on device)<br/>or SFSpeechRecognizer"]
         Swapper["VoiceSwapper<br/>≤3 requests in flight"]
-        Composer["VideoComposer (nonisolated)<br/>clips → tracks, CATextLayer export"]
+        Composer["VideoComposer (nonisolated)<br/>clips → tracks by kind,<br/>live mix, CATextLayer export"]
         Preview["PreviewPlayer<br/>caption overlay per track"]
     end
 
@@ -197,8 +197,8 @@ reinstalls the debug build on the booted simulator; with a video path it opens t
 
 ## Roadmap
 
-- Drag a take along its lane to move it
+- Drag a take or an effect along its lane to move it
 - Trim silence at the edges of a take
 - Remove filler words via on-device Foundation Models, cutting the audio by word timing
 - Hear other characters' takes while recording a reply
-- Auto-ducking of the sound effect under speech
+- Auto-ducking of effects under speech

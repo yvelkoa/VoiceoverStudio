@@ -2,6 +2,17 @@ import Foundation
 import Observation
 import VoiceoverKit
 
+/// A generated sound placed on the timeline. Generated once, kept on disk; moving it never calls the API.
+struct SoundEffect: Identifiable, Equatable, Sendable {
+    let id: UUID
+    var prompt: String
+    var start: Double
+    let duration: Double
+    let audio: URL
+
+    var end: Double { start + duration }
+}
+
 /// The edit itself: the video, who speaks in it and what was recorded. No networking, no AVFoundation.
 @Observable
 final class Project {
@@ -21,12 +32,10 @@ final class Project {
     /// Peak levels of each recording, for the timeline.
     private(set) var waveforms: [Take.ID: Waveform] = [:]
 
-    var effectPrompt = ""
-    var effectStart: Double = 0
+    private(set) var effects: [SoundEffect] = []
 
     /// Mix levels, 0...1. Used by the preview and the export alike.
-    var originalAudioVolume: Float = 0.25
-    var voiceVolume: Float = 1
+    var mix = MixLevels()
 
     private var nextSequence = 0
 
@@ -50,7 +59,8 @@ final class Project {
     func setVideo(_ url: URL, duration: Double) {
         videoURL = url
         videoDuration = duration
-        effectStart = min(effectStart, duration)
+        for effect in effects { try? FileManager.default.removeItem(at: effect.audio) }
+        effects.removeAll()
         takes.removeAll()
         transcripts.removeAll()
         convertedAudio.removeAll()
@@ -129,6 +139,29 @@ final class Project {
         characters.filter { character in
             character.voice == nil && takes.contains { $0.characterID == character.id }
         }
+    }
+
+    // MARK: - Effects
+
+    func add(_ effect: SoundEffect) {
+        effects.append(effect)
+    }
+
+    func remove(_ effect: SoundEffect) {
+        effects.removeAll { $0.id == effect.id }
+        waveforms[effect.id] = nil
+        try? FileManager.default.removeItem(at: effect.audio)
+    }
+
+    func move(_ effect: SoundEffect, to start: Double) {
+        guard let index = effects.firstIndex(where: { $0.id == effect.id }) else { return }
+        effects[index].start = min(max(start, 0), max(videoDuration - effect.duration, 0))
+    }
+
+    /// Waveforms are keyed by take or effect id alike.
+    func setWaveform(_ waveform: Waveform, forEffect id: SoundEffect.ID) {
+        guard effects.contains(where: { $0.id == id }) else { return }
+        waveforms[id] = waveform
     }
 
     /// Takes whose converted audio is missing or stale.

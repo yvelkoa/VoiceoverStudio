@@ -15,6 +15,8 @@ struct RecordingView: View {
     @State private var currentTime: Double = 0
     @State private var isScrubbing = false
     @State private var isPlaying = false
+    @State private var showsEffectSheet = false
+    @State private var showsMix = false
 
     var body: some View {
         NavigationStack {
@@ -29,6 +31,8 @@ struct RecordingView: View {
                     waveforms: model.project.waveforms,
                     liveRecording: model.liveRecording,
                     characters: model.project.characters,
+                    effects: model.project.effects,
+                    onDeleteEffect: { model.remove($0) },
                     currentTime: currentTime,
                     isPlaying: isPlaying,
                     isLocked: model.isRecording,
@@ -43,8 +47,19 @@ struct RecordingView: View {
             .navigationTitle(timecode(currentTime))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Mix", systemImage: "slider.horizontal.3") { showsMix = true }
+                        .popover(isPresented: $showsMix) {
+                            MixPopover(project: model.project) { model.applyMix() }
+                        }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }.disabled(model.isRecording)
+                }
+            }
+            .sheet(isPresented: $showsEffectSheet) {
+                EffectSheet(start: currentTime) { prompt, seconds in
+                    model.addEffect(prompt: prompt, durationSeconds: seconds, at: currentTime)
                 }
             }
         }
@@ -147,6 +162,16 @@ struct RecordingView: View {
             }
             .disabled(model.isRecording || model.project.takes.isEmpty)
             .accessibilityLabel("Delete last take")
+
+            Button {
+                showsEffectSheet = true
+            } label: {
+                Image(systemName: model.activity == .generatingEffect ? "hourglass" : "sparkles")
+                    .font(.title3)
+                    .frame(width: 36, height: 36)
+            }
+            .disabled(model.isRecording || model.activity != nil || model.player == nil)
+            .accessibilityLabel("Add sound effect at playhead")
         }
     }
 
@@ -210,5 +235,66 @@ struct RecordingView: View {
 
     private func timecode(_ seconds: Double) -> String {
         Duration.seconds(seconds).formatted(.time(pattern: .minuteSecond(padMinuteToLength: 1, fractionalSecondsLength: 1)))
+    }
+}
+
+/// Levels for the three kinds of audio; changes reach the player immediately.
+private struct MixPopover: View {
+    @Bindable var project: Project
+    let onChange: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            MixSliders(mix: $project.mix, onChange: onChange)
+        }
+        .padding()
+        .frame(minWidth: 280)
+        .presentationCompactAdaptation(.popover)
+    }
+}
+
+/// Describe a sound; ElevenLabs generates it once and it lands on the effects lane at the playhead.
+private struct EffectSheet: View {
+    let start: Double
+    let onGenerate: (String, Double?) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var prompt = ""
+    @State private var seconds: Double = 0
+
+    private let choices: [Double] = [0, 1, 2, 3, 5, 8, 12]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("e.g. dog barks twice, close", text: $prompt, axis: .vertical)
+                        .lineLimit(2...4)
+                } footer: {
+                    Text("Placed at \(start.formatted(.number.precision(.fractionLength(1)))) s. Each generation costs credits.")
+                }
+                Section("Length") {
+                    Picker("Length", selection: $seconds) {
+                        ForEach(choices, id: \.self) { choice in
+                            Text(choice == 0 ? "Auto" : "\(Int(choice)) s").tag(choice)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+            }
+            .navigationTitle("Sound effect")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Generate") {
+                        onGenerate(prompt, seconds == 0 ? nil : seconds)
+                        dismiss()
+                    }
+                    .disabled(prompt.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
