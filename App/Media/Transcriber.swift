@@ -39,6 +39,11 @@ nonisolated enum Transcriber {
             reportingOptions: [],
             attributeOptions: [.audioTimeRange]
         )
+        // The app has to hold a reservation for the locale before it may query or download its model;
+        // without it the install request fails with "not subscribed to transcription.<lang>".
+        if await !AssetInventory.reservedLocales.contains(locale) {
+            _ = try await AssetInventory.reserve(locale: locale)
+        }
         if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
             try await request.downloadAndInstall()
         }

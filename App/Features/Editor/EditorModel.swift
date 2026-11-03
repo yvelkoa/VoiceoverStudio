@@ -194,9 +194,11 @@ final class EditorModel {
         )
         try Task.checkCancellation()
 
+        // No video composition for the preview: AVPlayer applies the track's preferredTransform itself and
+        // captions are a SwiftUI overlay. The compositor is only needed for the export, and in the simulator
+        // its frames can't be displayed by AVPlayerLayer at all (IQ-CA error -19230, black video).
         let item = AVPlayerItem(asset: composed.composition)
         item.audioMix = composed.audioMix
-        item.videoComposition = composed.videoComposition
         self.composed = composed
         exportedURL = nil
         if let player {
