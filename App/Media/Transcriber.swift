@@ -54,11 +54,9 @@ nonisolated enum Transcriber {
             return words
         }()
 
-        if let last = try await analyzer.analyzeSequence(from: audioFile) {
-            try await analyzer.finalizeAndFinish(through: last)
-        } else {
-            await analyzer.cancelAndFinishNow()
-        }
+        // `finishAfterFile` ends the results stream once the file is through; with `analyzeSequence` +
+        // `finalizeAndFinish` the stream stays open and the collector never returns.
+        try await analyzer.start(inputAudioFile: audioFile, finishAfterFile: true)
         return try await collected
     }
 
