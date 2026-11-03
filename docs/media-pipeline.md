@@ -1,135 +1,198 @@
 # Media pipeline
 
-Everything here is in `App/Media/Composition` and `App/Features/Preview`.
+> **At a glance**
+> - One `AVMutableComposition` feeds both the preview and the export. One audio track **per clip**.
+> - Volume is never baked in: an `AVAudioMix` is rebuilt from the track map on demand.
+> - The preview has **no video composition**; the export builds one **by hand** because the system one breaks
+>   rotated phone footage.
+> - Captions come from one `[Caption]` array and are rendered twice: SwiftUI overlay and `CATextLayer`.
 
-## One edit, two consumers
+Code: `App/Media/Composition`, `App/Media/Recording/AudioSession.swift`, `App/Features/Preview`.
 
-```
-Project ──▶ EditorModel.compose ──▶ VideoComposer.compose(video:clips:) ──▶ ComposedVideo
-                                                                             ├─▶ AVPlayerItem (preview)
-                                                                             └─▶ AVAssetExportSession (export)
+## 1. One edit, two consumers
+
+```mermaid
+flowchart LR
+    P[Project] --> EM["EditorModel.compose<br/>voiceClips + effectClips"]
+    EM --> VC["VideoComposer.compose(video:clips:)<br/>@concurrent"]
+    VC --> CV[ComposedVideo]
+    CV --> PI["AVPlayerItem<br/>(preview, no videoComposition)"]
+    CV --> ES["AVAssetExportSession<br/>(export, hand-built videoComposition + captions)"]
+    MX[MixLevels] -.->|audioMix on demand| PI
+    MX -.-> ES
 ```
 
 `ComposedVideo` holds:
 
-- `composition: AVMutableComposition` — the video track plus one audio track per clip;
-- `trackKinds: [CMPersistentTrackID: AudioKind]` — which track is original audio, voice or effect;
-- `videoConfiguration: AVVideoComposition.Configuration` — a value type, used only by the export.
+| Field | Type | Used by |
+|---|---|---|
+| `composition` | `AVMutableComposition` | both, through the immutable `asset` copy |
+| `trackKinds` | `[CMPersistentTrackID: AudioKind]` | `audioMix(_:)` |
+| `videoConfiguration` | `AVVideoComposition.Configuration` (a value) | export only |
 
-Preview and export are built from the same composition, so what you hear is what you get, with one
-difference described under *Preview without a video composition*. Both receive `ComposedVideo.asset`, an
-immutable copy: AVFoundation asks for an immutable asset under a running player or export, and track ids
-survive the copy so the mix parameters still match.
+Both consumers receive `ComposedVideo.asset`, an immutable copy. AVFoundation asks for an immutable asset under a
+running player or export, and track ids survive the copy so the mix parameters still match.
 
-## Clips and tracks
+## 2. Clips and tracks
 
-`AudioClip(url:kind:start:sourceOffset:duration:)` is the composer's input. Each clip becomes its own
-`AVMutableCompositionTrack`, which is what lets takes of different characters overlap and lets the effects
-lane play under speech. A clip that would start past the video's end, or whose file has no audio track, is
-skipped silently; audio past the end of the video is trimmed to it.
+```mermaid
+flowchart TB
+    subgraph Sources
+        S1["Record mode: AudioSegment per take slice<br/>(recording or converted audio)"]
+        S2["Type mode: one speech file at 0"]
+        S3["Both: one per SoundEffect"]
+    end
+    S1 & S2 & S3 --> AC["AudioClip(url, kind, start, sourceOffset, duration)"]
+    AC --> T["one AVMutableCompositionTrack each"]
+    V[video file] --> VT[video track + original audio track]
+```
 
-The sources of clips (`EditorModel.voiceClips/effectClips`):
+Rules in the composer:
 
-- Record mode: every `AudioSegment` from `TakeResolver`, pointing at the take's recording or, if present,
-  its converted audio. Converted audio keeps the take's timing, so the same `sourceOffset`/`duration` apply
-  (see `conversionDrift` in [elevenlabs.md](elevenlabs.md) for when it doesn't quite).
-- Type mode: one clip, the generated speech file, at 0.
-- Both: one clip per `SoundEffect`.
+- A clip that would start past the video's end, or whose file has no audio track, is skipped silently.
+- Audio past the end of the video is trimmed to it.
+- Converted audio keeps the take's timing, so the same `sourceOffset` and `duration` apply. When it drifts, see
+  *Timing after a swap* in [elevenlabs.md](elevenlabs.md).
 
-## The live mix
+> **Decision.** One track per clip rather than one track per character.
+> **Why.** Takes of different characters may overlap, and the effects lane plays under speech. Separate tracks also
+> make the per-kind mix trivial.
 
-Levels are not baked into the composition. `ComposedVideo.audioMix(_ levels: MixLevels)` builds a fresh
-`AVMutableAudioMix` from `trackKinds` on demand, which costs nothing, so:
+## 3. The live mix
 
-- a slider sets `player.currentItem?.audioMix` immediately (`EditorModel.applyMix`), no recompose;
-- the export gets `audioMix(levels)` with the same values.
+```mermaid
+sequenceDiagram
+    participant S as Slider
+    participant M as EditorModel.applyMix
+    participant C as ComposedVideo.audioMix(levels)
+    participant I as AVPlayerItem
+    S->>M: project.mix changed
+    M->>C: trackKinds → AVMutableAudioMix
+    C-->>M: fresh mix (microseconds)
+    M->>I: currentItem.audioMix = mix
+    Note over I: no recompose, no seek, no glitch
+```
 
-`MixLevels` defaults: original 0.25 (ducked under speech), voice 1.0, effects 0.8. When the composition has
-no voice or effect tracks the preview plays the original at 1.0 so a freshly picked video sounds normal
-(`EditorModel.previewLevels`, applied both on compose and from the sliders); the export takes the mix as set.
+| Kind | Default level | Note |
+|---|---|---|
+| original | 0.25 | ducked under speech; **1.0** in the preview when there are no voice or effect tracks, so a freshly picked video sounds normal (`EditorModel.previewLevels`) |
+| voice | 1.0 | |
+| effect | 0.8 | |
 
-## Preview without a video composition
+The export gets `audioMix(levels)` with the project's values as set; the preview exception does not apply.
 
-The preview `AVPlayerItem` deliberately has **no** `videoComposition`:
+## 4. Preview without a video composition
 
-- `AVPlayer` applies the composition track's `preferredTransform` itself, so phone footage is upright;
-- captions are a SwiftUI overlay (`CaptionOverlay`) driven by the player's time, not burned pixels;
-- in the iOS Simulator, frames produced by the video compositor never reach `AVPlayerLayer`: the log
-  shows `IQ-CA signalled err=-19230` and the picture is black. Headless playback and `AVAssetReader` work,
-  only the display path fails. Dropping the composition from the preview sidesteps it and is also the
-  cheaper path on device.
+> **Decision.** The preview `AVPlayerItem` has **no** `videoComposition`.
+> **Why.**
+> 1. `AVPlayer` applies the track's `preferredTransform` itself, so phone footage is upright.
+> 2. Captions are a SwiftUI overlay driven by player time, not burned pixels.
+> 3. In the iOS Simulator, frames from the video compositor never reach `AVPlayerLayer`: the log shows
+>    `IQ-CA signalled err=-19230` and the picture is black. Headless playback and `AVAssetReader` work; only the
+>    display path fails.
+> **Bonus.** It is also the cheaper path on device.
 
-The compositor is only used by the export, where it is needed for the caption layers.
+The compositor is used only by the export, where it is needed for the caption layers.
 
-## Export
+## 5. Export
 
-`VideoComposer.export(_:captions:levels:range:to:)`:
+```mermaid
+flowchart LR
+    CFG["stored videoConfiguration<br/>(value)"] --> CA["+ AVVideoCompositionCoreAnimationTool<br/>one CATextLayer per caption"]
+    CA --> ES[AVAssetExportSession<br/>HighestQuality]
+    MX["audioMix(levels)"] --> ES
+    TR["timeRange if trimmed"] --> ES
+    ES --> MP4["export-&lt;uuid&gt;.mp4 in project folder<br/>excluded from backup"]
+    MP4 --> PH["PhotosSaver (add-only)"]
+```
 
-1. Takes the stored `videoConfiguration` (a value), adds an `AVVideoCompositionCoreAnimationTool` whose
-   parent layer holds one `CATextLayer` per caption. Each layer has `opacity 0` and a `CABasicAnimation`
-   from `AVCoreAnimationBeginTimeAtZero + start` lasting `end - start`, which is how a layer is visible only
-   during its caption. Layers for `track > 0` are offset upwards by one line so simultaneous speakers stack.
-2. Creates an `AVAssetExportSession` with `AVAssetExportPresetHighestQuality`, sets the video composition,
-   the audio mix and, if trimmed, `timeRange`. Caption times are composition times, so trimming shifts
-   nothing.
-3. Exports MP4 into the project folder, marked excluded from backup (it can be regenerated); `PhotosSaver`
-   then adds it to the library with add-only access.
+Caption layers: `opacity 0` plus a `CABasicAnimation` from `AVCoreAnimationBeginTimeAtZero + start` lasting
+`end - start`. Layers for `track > 0` are offset upwards by one line so simultaneous speakers stack. Caption times
+are composition times, so trimming shifts nothing.
 
 ### Why the video composition is built by hand
 
-The obvious call, `AVVideoComposition.Configuration(for: composition)`, **ignores the composition track's
-`preferredTransform`**. For a portrait iPhone clip (stored as 1920×1080 rotated 90°) it produced a
-1920×1080 render with the picture in one half of the frame and black in the other. Reproduced with a
-synthetic rotated clip: 44% of the frame dark.
+```mermaid
+flowchart LR
+    subgraph System["Configuration(for: composition)"]
+        A["render 1920×1080<br/>picture in one half, black in the other"]
+    end
+    subgraph Ours["videoConfiguration(for:naturalSize:transform:frameRate:range:)"]
+        B["render = abs(naturalSize × preferredTransform)<br/>layer transform = preferredTransform ∘ translate(-bounds.origin)<br/>frame = 1 / nominalFrameRate, min 24"]
+    end
+```
 
-`VideoComposer.videoConfiguration(for:naturalSize:transform:frameRate:range:)` therefore does what the
-system should: render size = natural size transformed by `preferredTransform` (absolute, rounded); one
-instruction over the full range with one layer instruction whose transform is `preferredTransform`
-concatenated with a translation by `-bounds.minX, -bounds.minY`, so the rotated picture starts at the
-origin. Frame duration is `1/nominalFrameRate` (min 24). Verified full-frame on rotated, unrotated and
-HLG HDR sources.
+> **Decision.** `VideoComposer.videoConfiguration` builds the render size, the single instruction and the single
+> layer instruction itself.
+> **Why.** `AVVideoComposition.Configuration(for:)` **ignores the composition track's `preferredTransform`**. A
+> portrait iPhone clip (stored 1920×1080, rotated 90°) came out with 44 % of the frame black. Reproduced with a
+> synthetic rotated clip.
+> **Verified.** Full frame on rotated, unrotated and HLG HDR sources.
 
-The composition track still gets `preferredTransform` because the preview, which has no video
-composition, relies on it.
+The composition track still gets `preferredTransform`, because the preview, which has no video composition,
+relies on it.
 
-## Captions: one source, two renderers
+## 6. Captions: one source, two renderers
 
 | | Preview | Export |
 |---|---|---|
 | Renderer | `CaptionOverlay` (SwiftUI `Text`) | `CATextLayer` per caption |
-| Timing | `AVPlayer.timeUpdates(every:)` → filter `start ≤ t < end` | opacity animation on the composition timeline |
-| Stacking | `VStack`, sorted by `track` | y offset = `track × line height` |
-| Style | title3 bold, white, shadow | system bold 5.5% of min(width,height) as a `CTFont`, white, shadow |
+| Timing | `AVPlayer.timeUpdates(every:)`, filter `start ≤ t < end` | opacity animation on the composition timeline |
+| Stacking | `VStack` sorted by `track` | y offset = `track × line height` |
+| Style | title3 bold, white, shadow | system bold, 5.5 % of min(width, height) as `CTFont`, white, shadow |
 
-Both read the same `[Caption]` from `EditorModel.captions`, which is rebuilt by `CaptionAssembler` (record
-mode) or taken from the TTS alignment (type mode).
+Both read `EditorModel.captions`, rebuilt by `CaptionAssembler` (Record mode) or taken from the TTS alignment
+(Type mode).
 
-## Audio session
+## 7. Audio session
 
-`AudioSession.configurePlayback()` sets the `.playback / .moviePlayback` **category** at launch without
-activating the session: activating would stop the user's music the moment the project list appears, and
-AVPlayer activates the session itself when it starts playing. `activatePlayback()` (category + active) runs
-after every take; `activateRecording()` sets `.playAndRecord` with speaker output and Bluetooth HFP while a
-take runs. The system default category obeys the silent switch, which made a relaunched app play the edit
-without sound until the first recording changed categories.
+```mermaid
+stateDiagram-v2
+    [*] --> CategoryOnly: launch, configurePlayback sets .playback, not active
+    CategoryOnly --> Playing: AVPlayer.play activates the session itself
+    Playing --> Recording: startRecording, activateRecording sets .playAndRecord
+    Recording --> Playing: stopRecording, activatePlayback
+    Recording --> Playing: interruption or headset unplugged, onInterruption, stopRecording
+```
 
-While a take runs, `TakeRecorder` observes the session: an interruption (`.began`: call, Siri, alarm) or a
-route change with `.oldDeviceUnavailable` (headset unplugged) calls `onInterruption`, which `EditorModel`
-wires to `stopRecording()`, so what was recorded becomes a take instead of leaving REC over a recorder the
-system has already stopped. `RecordingView` does the same when the scene goes to the background: there is no
-background audio mode, so the recorder would stop anyway.
+> **Decision.** Set the category at launch, but do not activate the session.
+> **Why.** The system default category obeys the silent switch, which made a relaunched app play the edit without
+> sound. But `setActive(true)` at launch stops the user's music the moment the project list appears; AVPlayer
+> activates the session itself when it plays.
 
-## Recording while the video plays
+While a take runs, `TakeRecorder` observes the session. An interruption (call, Siri, alarm) or a route change with
+`.oldDeviceUnavailable` calls `onInterruption`, wired by `EditorModel` to `stopRecording()`, so what was recorded
+becomes a take instead of leaving REC over a recorder the system already stopped. `RecordingView` does the same
+when the scene goes to the background; there is no background audio mode.
 
-`startRecording` mutes the player (so the microphone doesn't pick up the soundtrack), remembers the
-playhead as the take's start, starts `AVAudioRecorder` and then `play()`. `stopRecording` sets `rate = 0`,
-unmutes, stops the recorder, adds the take and seeks back to the take's start. Hearing other characters'
-earlier takes while recording a reply is on the roadmap; it needs echo cancellation or headphones.
+## 8. Recording while the video plays
 
-## Frame strip and thumbnails
+```mermaid
+sequenceDiagram
+    participant V as RecordingView
+    participant M as EditorModel
+    participant P as AVPlayer
+    participant R as TakeRecorder
+    V->>M: startRecording()
+    M->>P: isMuted = true
+    M->>M: recordingStart = currentTime
+    M->>R: start(in: folder)
+    M->>P: play()
+    V->>M: stopRecording()
+    M->>P: rate = 0, isMuted = false
+    M->>R: stop() → url, duration
+    M->>M: project.addTake, rebuildCaptions, recompose, transcribe, waveform
+    M->>P: seek(recordingStart)
+```
 
-`FrameStrip.image` decodes one frame per second with `AVAssetImageGenerator.images(for:)`, aspect-fills
-each into a cell and returns **one** `CGImage` for the whole strip. One image moves at display rate for
-free; forty `Image` views being re-diffed every frame did not. The strip is cached on `EditorModel` for the
-video's lifetime and generated at utility priority after the recorder's presentation animation.
-`Thumbnail.write` saves a 360-px JPEG at t = 1 s for the project list.
+The player is muted so the microphone does not pick up the soundtrack. Hearing other characters' earlier takes
+while recording a reply is on the roadmap; it needs echo cancellation or headphones.
+
+## 9. Frame strip and thumbnails
+
+> **Decision.** `FrameStrip.image` returns **one** `CGImage` for the whole strip (one frame per second,
+> aspect-filled into cells).
+> **Why.** One image moving at display rate is free. Forty `Image` views re-diffed every frame were not.
+
+The strip is cached on `EditorModel` for the video's lifetime and generated at utility priority after the
+recorder's presentation animation. `Thumbnail.write` saves a 360 px JPEG at t = 1 s for the project list.

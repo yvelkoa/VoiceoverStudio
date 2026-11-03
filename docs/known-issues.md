@@ -1,70 +1,78 @@
 # Known issues, shortcuts and debt
 
-Honest list for the next review. Each item says why it is still there.
+> **At a glance**
+> - Four groups: platform limits we cannot fix, shortcuts taken on purpose, things not done yet, and a list of
+>   traps that already bit us once.
+> - Each item says **why it is still there**. Items the review of 2026-11-03 fixed are gone from this file;
+>   see [review-2026-11-03.md](review-2026-11-03.md).
 
-## Platform limits
+```mermaid
+flowchart LR
+    PL["Platform limits<br/>(can't fix, can only route around)"]
+    SC["Shortcuts on purpose<br/>(cheap now, known upgrade path)"]
+    ND["Not done yet<br/>(roadmap)"]
+    TR["Traps<br/>(so they don't bite again)"]
+    PL --> TR
+    SC --> ND
+```
 
-- **Simulator microphone**: recordings in the simulator came out silent on this machine (default input was
-  an aggregate device). Works on device. The live level trace exists partly to make this obvious.
-- **Simulator video compositor**: composited frames don't reach `AVPlayerLayer` (`IQ-CA -19230`). The preview
-  avoids the compositor; the export still uses it and should be verified on device.
-- **On-device transcription languages**: `SpeechTranscriber` covers English and a handful of others; Russian
-  and Ukrainian fall back to `SFSpeechRecognizer` (server, ~1 min per request). The take length is well
-  under that, but offline it will fail.
-- **AVKit scrubber in Preview** shows the full video length even when the export range is trimmed;
-  playback is confined with `forwardPlaybackEndTime`.
-- **Debug builds** are noticeably slower (no optimisation, concurrency checks). Judge animation smoothness
-  in Release.
+## 1. Platform limits
 
-## Shortcuts taken on purpose
+| Limit | Effect | What the app does |
+|---|---|---|
+| Simulator microphone | recordings silent on a Mac whose default input is an aggregate device | the live level trace makes it obvious; test on device |
+| Simulator video compositor | composited frames never reach `AVPlayerLayer` (`IQ-CA -19230`) | preview avoids the compositor; export still uses it, verify on device |
+| On-device transcription languages | `SpeechTranscriber` covers English and a handful of others | ru, uk fall back to `SFSpeechRecognizer` (server, ~1 min cap); offline it fails |
+| AVKit scrubber in Preview | shows the full length even when the export range is trimmed | playback is confined with `forwardPlaybackEndTime` |
+| Debug builds | noticeably slower (no optimisation, concurrency checks) | judge animation smoothness in Release |
 
-- `EditorModel` is split into `+Recording`, `+Effects` and `+Jobs` extensions with `internal` members to stay
-  under SwiftLint's type-length limit. A cleaner split would be separate coordinator objects (recording session,
-  swap job, export job) owned by the model.
-- `Project` deletes files itself. Keeps manifest and folder in step, but mixes model and filesystem; a
-  `ProjectFiles` helper would be the next step.
-- `ProjectStore` reads and writes JSON on the main actor except `loadInBackground`. Manifests are tiny; a
-  project with hundreds of takes would make this noticeable.
-- `ProjectAutosaver` saves 600 ms after the last change and on deinit; a crash inside that window loses
-  up to one change. Acceptable for now.
-- The debug hook `VOICEOVER_DEBUG_VIDEO` lives in `EditorView+Helpers` behind `#if DEBUG`.
-- `Scripts/check.sh` hard-codes the `iPhone 17` simulator destination.
-- Transcription errors surface as an alert with Retry; a quieter inline state per take would be better.
-- Edits that change the composition are disabled while a job runs (`EditorModel.isBusy`) rather than queued;
-  simpler, and a swap takes seconds, not minutes.
-- `Waveform` and `FrameStrip` are recomputed per open (utility priority) instead of cached on disk.
+## 2. Shortcuts taken on purpose
 
-## Not done yet
+| Shortcut | Why it is fine for now | Upgrade path |
+|---|---|---|
+| `EditorModel` split into `+Recording`, `+Effects`, `+Jobs` with `internal` members | keeps under SwiftLint's type-length limit; one owner for all orchestration | separate coordinators (recording session, swap job, export job) owned by the model |
+| `Project` deletes files itself | manifest and folder stay in step within one mutation | a `ProjectFiles` helper |
+| `ProjectStore` reads and writes JSON on the main actor except `loadInBackground` | manifests are tiny | move writes off-main when a project has hundreds of takes |
+| Autosave 600 ms after the last change and on deinit | a crash inside the window loses one change | none planned |
+| Debug hook `VOICEOVER_DEBUG_VIDEO` in `EditorView+Helpers` | behind `#if DEBUG` | none |
+| `Scripts/check.sh` hard-codes the `iPhone 17` destination | one dev machine | parameterise |
+| Transcription errors surface as an alert with Retry | works | a quieter inline state per take |
+| Edits are **disabled** while a job runs (`isBusy`) rather than queued | simpler; a swap takes seconds | queue if jobs get long |
+| `Waveform` and `FrameStrip` recomputed per open | utility priority, barely visible | cache on disk |
 
-- Localisation: every string is hard-coded English, no String Catalog. The recording-language setting shows
-  the audience is multilingual.
-- Recording past the end of the video continues until Stop; the composer trims the audio later. Auto-stop at
-  the video's end would be the expected behaviour.
-- `project.pbxproj` is committed next to `project.yml`. With xcodegen the usual choice is one or the other;
-  keeping both means they drift whenever someone forgets `xcodegen generate`.
-- No app-level tests. The task slots, the autosaver and the routing of edits through `EditorModel` are
-  verified by reading and by the build only; the review in `review-2026-11-03.md` found its bugs there.
+## 3. Not done yet
 
-- Dragging takes/effects along their lanes; trimming silence at take edges.
+**Correctness and polish**
+
+- Localisation: every string is hard-coded English, no String Catalog. The recording-language setting shows the
+  audience is multilingual.
+- Recording past the end of the video continues until Stop; the composer trims the audio later. Auto-stop at the
+  video's end is the expected behaviour.
+- `project.pbxproj` is committed next to `project.yml`. With xcodegen the usual choice is one or the other; both
+  means they drift whenever someone forgets `xcodegen generate`.
+- No app-level tests. The task slots, the autosaver and the routing of edits through `EditorModel` are verified by
+  reading and by the build only; that is where the review found its bugs.
+
+**Features**
+
+- Dragging takes and effects along their lanes; trimming silence at take edges.
 - Hearing other characters' takes while recording a reply (needs echo cancellation or headphones).
 - Export settings (codec, resolution); today it is H.264 MP4 at source size via `HighestQuality`.
 - Filler-word removal via Foundation Models using word timings.
 - Streaming TTS.
 - Type mode has no sound effects of its own anymore; effects are a project-level lane used by both modes.
 
-## Things that bit us (so they don't again)
+## 4. Traps that already bit us
 
-1. `analyzeSequence` + `finalizeAndFinish` never ends the results stream; use `finishAfterFile`.
-2. `AssetInventory.reserve(locale:)` before requesting a speech model.
-3. `Configuration(for: composition)` ignores `preferredTransform` → half-black exports of phone clips.
-4. The default audio session obeys the silent switch → "no sound after relaunch". But set the category only
-   at launch: `setActive(true)` there silences the user's music before they have done anything.
-5. `onDisappear` fires when a child is pushed; use lifetime (`isolated deinit`) for teardown.
-6. A missing key permission looks like a rejected key unless `missing_permissions` is handled.
-7. Shell: a `;` after a failing build still runs the commit. Use a script with `set -e`.
-8. Anything the autosaver tracks must not be written by the save itself (`updatedAt` write-back looped
-   every 600 ms).
-9. One task slot for everything means a cheap step cancels an expensive one, and a step that re-enters
-   `run` cancels itself. Keep compose and jobs in separate slots; call `compose` directly from a job.
-10. A retry closure stored on the model must not capture the operation; it captures `self` and the model
-    never deinits.
+| # | Trap | Rule |
+|---|---|---|
+| 1 | `analyzeSequence` + `finalizeAndFinish` never ends the results stream | use `start(inputAudioFile:finishAfterFile: true)` |
+| 2 | Speech model install fails with "not subscribed" | `AssetInventory.reserve(locale:)` first |
+| 3 | `Configuration(for: composition)` ignores `preferredTransform` | build the video configuration by hand; half-black exports otherwise |
+| 4 | Default audio session obeys the silent switch | set the category at launch, but **don't** `setActive(true)` there: it silences the user's music |
+| 5 | `onDisappear` fires when a child is pushed | tear down in `isolated deinit` |
+| 6 | A missing key permission looks like a rejected key | handle `missing_permissions` separately |
+| 7 | A `;` after a failing build still runs the commit | use a script with `set -e` (`Scripts/check.sh`) |
+| 8 | The save wrote `updatedAt` back into the tracked snapshot | nothing the autosaver tracks may be written by the save itself; it looped every 600 ms |
+| 9 | One task slot for everything | a cheap step cancels an expensive one, and a step that re-enters `run` cancels itself; keep compose and jobs apart, call `compose` directly from a job |
+| 10 | A retry closure stored on the model captured the operation | it captured `self` and the model never deinited; retry with values only |

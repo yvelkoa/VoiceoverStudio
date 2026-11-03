@@ -1,83 +1,114 @@
 # Persistence
 
-## Layout
+> **At a glance**
+> - One folder per project under `Documents/Projects/<uuid>/`, a `project.json` manifest, media next to it.
+> - Files are referenced **by name**; the container path changes between launches.
+> - Autosave is `withObservationTracking` over one computed snapshot, debounced 600 ms, flushed in deinit.
+> - `Project` deletes files in the same mutation that drops the reference, so folder and manifest stay in step.
+
+## 1. Layout
 
 ```
 Documents/Projects/<project-uuid>/
   project.json          manifest (ProjectDocument)
-  thumbnail.jpg         poster frame for the list
+  thumbnail.jpg         poster frame for the list            ← excluded from backup
   video-<uuid>.mov      the picked video, moved here
   take-<uuid>.m4a       recordings
   swapped-<takeid>.mp3  converted voice per take
   effect-<uuid>.mp3     generated sounds
   speech-<uuid>.mp3     Type-mode generated speech
-  export-<uuid>.mp4     the last export
+  export-<uuid>.mp4     the last export                      ← excluded from backup
 ```
 
-A project is self-contained: copying the folder is a backup; deleting it removes everything. `export-*.mp4`
-and `thumbnail.jpg` are marked excluded from iCloud backup because they can be regenerated from the rest. Files are
-referenced **by name**, never by absolute path, because iOS changes the app container path between
-launches and updates.
+A project is self-contained: copying the folder is a backup; deleting it removes everything.
 
-## Why folders + JSON, not SwiftData
+> **Decision.** Folders + JSON, not SwiftData.
+> **Why.** The heavy data is media files either way; the manifest is a few kilobytes of plain values with ids.
+> A readable manifest is debuggable with `cat` and testable without a model container. `Codable` structs are
+> trivial under Swift 6 strict concurrency; `@Model` classes are still fiddly.
 
-- The heavy data is media files either way; the manifest is a few kilobytes.
-- The graph is plain values with ids; no relationships worth a database.
-- A readable manifest is debuggable with `cat` and testable without a model container.
-- Swift 6 strict concurrency with `@Model` classes is still fiddly; `Codable` structs are not.
+## 2. Manifest (`ProjectDocument`)
 
-## Manifest (`ProjectDocument`)
+```mermaid
+flowchart LR
+    P["Project (main actor,<br/>URLs, @Observable)"] -- "document (computed snapshot)" --> D["ProjectDocument<br/>(nonisolated Codable,<br/>file names, uuidString keys)"]
+    D -- "init(document:folder:)" --> P
+    D <--> J["project.json<br/>ISO 8601 dates, sorted keys,<br/>pretty, atomic write"]
+```
 
-A `nonisolated` `Codable` struct that mirrors `Project` with file names instead of URLs and `uuidString`
-keys for the dictionaries (readable JSON; `[UUID: T]` would encode as a flat array). It carries a `version`
-(`ProjectDocument.currentVersion`, now 1) and a hand-written `init(from:)` in which **every field except
-`id`, `title` and the dates is `decodeIfPresent` with a default**. The rule for changes: a new field is
-optional or defaulted and needs no version bump; only a change that cannot be expressed that way bumps the
-version and gets a migration branch in `init(from:)`. A manifest the list cannot decode looks like a deleted
-project to the user, so `ProjectStore.refresh()` shows such a folder as an "Unreadable project" row (with
-delete) rather than skipping it. `Voice`, `Character`,
-`VoiceSettings`, `TimedWord`, `Caption`, `MixLevels` are `Codable` in the kit/app. Dates are ISO 8601,
-output is pretty-printed with sorted keys, writes are atomic.
+| Stored | Not stored |
+|---|---|
+| title, dates, video file + duration, mode, characters, active character, takes, sequence counter, transcripts, converted audio + drift, effects, mix, trim, Type-mode script/voice/speech/captions, export file | waveforms (recomputed), frame strip (recomputed), player state |
 
-Stored: title, dates, video file + duration, mode, characters, active character, takes, sequence counter,
-transcripts, converted audio + drift, effects, mix, trim, Type-mode script/voice/speech/captions, export file.
-Not stored: waveforms (recomputed), frame strip (recomputed), player state.
+Versioning rules:
 
-## Loading
+- `version` is `ProjectDocument.currentVersion` (now 1).
+- In the hand-written `init(from:)` **every field except `id`, `title` and the dates is `decodeIfPresent` with a
+  default**. A new field is optional or defaulted and needs no bump.
+- Only a change that cannot be expressed that way bumps the version and gets a migration branch.
+- A manifest that fails to decode is shown by `ProjectStore.refresh()` as an "Unreadable project" row with Delete,
+  not skipped. Skipping looks like data loss to the user.
 
-`ProjectStore.loadInBackground` decodes on a detached task and then builds `Project(document:folder:)` on
-the main actor. `EditorModel.restore()` rebuilds captions from transcripts, composes a player and kicks off
-waveform loads. Missing files degrade gracefully: a clip whose file is gone is skipped by the composer.
+## 3. Loading
 
-## Autosave (`ProjectAutosaver`)
+```mermaid
+sequenceDiagram
+    participant S as ProjectScreen
+    participant St as ProjectStore
+    participant BG as detached task
+    participant M as EditorModel
+    S->>S: sleep 300 ms
+    S->>St: loadInBackground(id)
+    St->>BG: decodeDocument(in: folder)
+    BG-->>St: ProjectDocument
+    St->>St: Project(document:folder:) on main actor
+    St-->>S: Project
+    S->>M: init → restore()
+    Note over M: captions from transcripts,<br/>recompose, waveforms at .utility
+```
 
-`withObservationTracking { _ = project.document }` registers every persisted property in one read; its
-`onChange` schedules a save 600 ms later (debounced) and re-registers. `stop()` cancels the pending save and
-writes once more; it is called from `EditorModel`'s `isolated deinit`. There is no Save button anywhere.
+Missing files degrade gracefully: a clip whose file is gone is skipped by the composer.
 
-The one rule this imposes on `ProjectStore.save`: **never write back into the project**. The first version
-set `project.updatedAt` after each write; `updatedAt` is part of `document`, so the save itself counted as a
-change and the manifest was rewritten every 600 ms for as long as the editor was open. `updatedAt` on `Project`
-is now a `let` loaded from disk, and the store stamps the time into the manifest only.
+## 4. Autosave (`ProjectAutosaver`)
 
-## Invalidation rules (where files get deleted)
+```mermaid
+flowchart LR
+    O["withObservationTracking { project.document }"] --> C[onChange fires once]
+    C --> H[hop to main actor]
+    H --> S["schedule save in 600 ms<br/>(cancel the previous)"]
+    S --> O
+    D["EditorModel isolated deinit → stop()"] --> F[cancel pending, save once more]
+```
+
+There is no Save button anywhere.
+
+> **Decision.** `ProjectStore.save` never writes back into the project; `updatedAt` on `Project` is a `let`, and
+> the store stamps the time into the manifest only.
+> **Why.** The first version set `project.updatedAt` after each write. `updatedAt` is part of `document`, so the save
+> counted as a change and the manifest was rewritten every 600 ms for as long as the editor was open. The review
+> reproduced it in isolation: one mutation, 18 saves in 2 seconds at a 100 ms debounce.
+
+## 5. Invalidation: where files get deleted
 
 | Event | Dropped |
 |---|---|
 | Replace video | takes, converted audio, effects, transcripts, drift, waveforms, Type result, export, trim |
 | Delete take | its recording, converted audio, transcript, drift, waveform |
 | Change a character's voice or settings | converted audio + drift of that character's takes only |
-| Delete character | its takes (as above) |
+| Delete character | its takes, as above |
 | Delete effect | its file and waveform |
 | Any recompose (new take, effect, trim, mode) | the current export file; `savedToPhotos` resets |
 | Export again | the previous export file |
 
-`Project` performs the deletions itself in the same mutation, so the manifest and the folder never
-disagree for longer than the autosave delay.
+`Project` performs the deletions itself in the same mutation, so the manifest and the folder never disagree for
+longer than the autosave delay.
 
-## Store and list
+## 6. Store and list
 
-`ProjectStore.refresh()` reads every manifest into `ProjectSummary` (title, date, duration, take count,
-exported flag, thumbnail presence). `save` updates the summary in place so the list reorders by last
-change without re-reading. `create` makes the folder and writes a first manifest so an empty project is
-already a valid one; `delete` removes the folder.
+| Method | Does |
+|---|---|
+| `refresh()` | reads every manifest into `ProjectSummary` (title, date, duration, take count, exported flag, thumbnail presence) |
+| `create()` | makes the folder and writes a first manifest, so an empty project is already valid |
+| `load` / `loadInBackground` | decode and build a `Project` |
+| `save` | atomic write; updates the summary in place so the list reorders without re-reading |
+| `rename`, `delete` | title only / remove the folder |

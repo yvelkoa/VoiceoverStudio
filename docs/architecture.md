@@ -1,20 +1,46 @@
 # Architecture
 
-## Two layers, one direction
+> **At a glance**
+> - Two layers, one direction: **App** (SwiftUI, iOS 26) depends on **VoiceoverKit** (pure Swift, tested on macOS).
+> - `Project` holds the edit and is deliberately dumb. `EditorModel` is the only orchestrator.
+> - Views never mutate anything that changes what is heard; they call `EditorModel`.
+> - Work runs in two slots, **compose** (cheap, restartable) and **job** (billed, never cancelled by accident).
 
+## 1. Layers
+
+```mermaid
+flowchart TB
+    subgraph App["App target (SwiftUI, iOS 26)"]
+        direction TB
+        UI["Features: views"]
+        EM[EditorModel + extensions]
+        P[Project]
+        Media["Media: composer, recorder, transcriber, swapper"]
+        Store["Persistence: store, document, autosaver"]
+        UI --> EM --> P
+        EM --> Media
+        EM --> Store
+    end
+    subgraph Kit["VoiceoverKit (no UI, no AVFoundation)"]
+        direction TB
+        EL[ElevenLabsClient + errors]
+        TL["Timeline: Take, TakeResolver, Character"]
+        CP["Captions: CaptionBuilder, CaptionAssembler"]
+        KC[KeychainStore]
+    end
+    App --> Kit
 ```
-App (SwiftUI, iOS 26)  ──depends on──▶  VoiceoverKit (Swift package, no UI, no AVFoundation)
-```
 
-**VoiceoverKit** owns everything that can be reasoned about without a device: the ElevenLabs client and its
-error model, the timeline maths (overlap resolution, caption assembly, caption line breaking) and the value
-types they share (`Take`, `AudioSegment`, `Character`, `Voice`, `VoiceSettings`, `Caption`, `TimedWord`).
-It builds in Swift 6 language mode with `swift test` on macOS, which is why nothing in it touches AVFoundation
-or UIKit. Tests use a stub `HTTPTransport`, so no network.
+| Layer | Owns | Must not contain |
+|---|---|---|
+| **VoiceoverKit** | ElevenLabs client and error model, timeline maths (overlap resolution, caption assembly, line breaking), shared value types (`Take`, `AudioSegment`, `Character`, `Voice`, `VoiceSettings`, `Caption`, `TimedWord`), Keychain | AVFoundation, UIKit, SwiftUI, file-system layout |
+| **App** | State, files, media, UI. AVFoundation, Speech, Photos, PhotosUI | Business rules that could be tested without a device |
 
-**App** owns state, files, media and UI. AVFoundation, Speech, Photos and PhotosUI live only here.
+The kit builds in Swift 6 language mode and is tested with `swift test` on macOS, with a stub `HTTPTransport`
+instead of the network. That is the reason the boundary is where it is: anything that needs a simulator to test
+stays in the app.
 
-## Folders
+## 2. Folders
 
 ```
 App/
@@ -41,79 +67,150 @@ Packages/VoiceoverKit/Sources/VoiceoverKit/
   Keychain/      KeychainStore
 ```
 
-One type per file. A file named `X+Y.swift` is an extension of `X` grouping the `Y` concern; the members it
-needs are `internal`, not `private`, on purpose.
+Conventions:
 
-## Who owns what
+- One type per file.
+- `X+Y.swift` is an extension of `X` grouping the `Y` concern. Members it needs are `internal`, not `private`,
+  on purpose.
+
+## 3. Who owns what
+
+```mermaid
+flowchart LR
+    AppModel -->|owns| Client[ElevenLabsClient]
+    AppModel -->|owns| Store[ProjectStore]
+    ProjectScreen -->|"@State, one per push"| EditorModel
+    EditorModel -->|owns| Project
+    EditorModel -->|owns| Recorder[TakeRecorder]
+    EditorModel -->|owns| Autosaver[ProjectAutosaver]
+    EditorModel -->|owns| Player[AVPlayer]
+    EditorModel -->|owns| Composed[ComposedVideo]
+    Autosaver -->|observes| Project
+    Autosaver -->|writes via| Store
+    RecordingView -->|reads, calls| EditorModel
+    PreviewScreen -->|reads| Player
+```
 
 | Object | Lifetime | Owns |
 |---|---|---|
-| `AppModel` | app | `ElevenLabsClient`, `ProjectStore`, API-key presence; sets the playback audio session at launch |
+| `AppModel` | app | `ElevenLabsClient`, `ProjectStore`, API-key presence; sets the playback audio category at launch |
 | `ProjectStore` | app | the `Documents/Projects` folder and the list of summaries |
-| `Project` | while its editor is open | all edit state: video, characters, takes, transcripts, converted audio, effects, mix, trim, type-mode result, export |
-| `EditorModel` | while its editor is open | orchestration: the player, the composed edit, activity/failure, recorder, transcription tasks, autosaver, strip cache |
+| `Project` | while its editor is open | all edit state: video, characters, takes, transcripts, converted audio, effects, mix, trim, Type-mode result, export |
+| `EditorModel` | while its editor is open | orchestration: player, composed edit, activity and failure, recorder, transcription tasks, autosaver, strip cache |
 | `TakeRecorder` | per editor | `AVAudioRecorder`, live metering |
 | `ProjectAutosaver` | per editor | observes `Project.document`, saves after 600 ms |
-| `RecordingView` / `PreviewScreen` | presented | nothing: they read the model and call it |
+| `RecordingView`, `PreviewScreen` | while presented | nothing; they read the model and call it |
 
-`Project` is deliberately dumb: it mutates state, deletes files it no longer references and knows nothing
-about AVFoundation, networking or Observation beyond being `@Observable`. `EditorModel` is the only place
-that decides *when* to recompose, transcribe, swap or export.
+### The one rule for views
 
-That makes a rule for views: **views do not mutate `Project` except for presentation-only fields**
-(`activeCharacterID`, `mix`, `script`, `voice` in Type mode). Anything that changes which audio is heard or
-what the export covers (takes, characters and their voices, effects, trim, mode) goes through an `EditorModel`
-method, which performs the mutation and then rebuilds captions, recomposes or drops the stale export. The
-first version let `CharactersSection` delete a character straight on the project; its takes and files went,
-the player kept an item pointing at them and the captions stayed.
+> **Decision.** Views do not mutate `Project` except for presentation-only fields: `activeCharacterID`, `mix`,
+> `script`, `voice` in Type mode. Everything that changes what is heard or what the export covers (takes,
+> characters and their voices, effects, trim, mode) goes through an `EditorModel` method.
+> **Why.** The model must follow the mutation with `rebuildCaptions()`, `recompose()` or dropping the stale export.
+> The first version let `CharactersSection` delete a character straight on the project: its takes and files went,
+> the player kept an item pointing at them and the captions stayed.
+> **Rejected.** Having `EditorModel` observe `project.segments` and react. Implicit, and it cannot know *which*
+> follow-up (captions, recompose, export reset) the change needs.
 
-## Data flow in a session
+`Project` mutates state, deletes files it no longer references, and knows nothing about AVFoundation, networking
+or Observation beyond being `@Observable`.
 
-1. `ProjectListView` → tap → `ProjectScreen` sleeps 300 ms (lets the push animate), decodes the manifest in
-   the background, builds `EditorModel(project:client:store:)`.
-2. `EditorModel.init` → `restore()`: captions from stored transcripts, `recompose()` for a player, waveforms
-   at utility priority. The autosaver starts observing.
-3. **Record**: `RecordingView` → `startRecording()` (mute video, start recorder, play) → `stopRecording()`
-   (add take, seek back, `rebuildCaptions`, `recompose`, `transcribe`, waveform).
-4. **Swap**: `swapVoices()` → `VoiceSwapper` (≤3 requests in flight) → `project.setConvertedAudio` per take →
-   `recompose`.
-5. **Export**: `export()` → `VideoComposer.export` with the mix levels and trim range → `PhotosSaver`.
-6. Every mutation of `Project` is picked up by the autosaver; the manifest is rewritten atomically.
-7. Pop → `EditorModel` is released → `isolated deinit` cancels work, pauses the player, flushes the save.
+## 4. A session, end to end
 
-## State machine
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant L as ProjectListView
+    participant S as ProjectScreen
+    participant M as EditorModel
+    participant R as RecordingView
+    participant X as ElevenLabs
 
+    U->>L: tap project
+    L->>S: push
+    S->>S: sleep 300 ms (let the push animate)
+    S->>S: decode manifest off-main
+    S->>M: init(project, client, store)
+    M->>M: restore(): captions, recompose, waveforms
+    U->>R: Record
+    R->>M: startRecording()
+    Note over M: mute player, start recorder, play
+    U->>R: Stop
+    R->>M: stopRecording()
+    Note over M: add take, seek back, captions, recompose, transcribe
+    U->>M: swapVoices()
+    M->>X: voice-changer per take (≤3 in flight)
+    X-->>M: converted audio
+    M->>M: recompose
+    U->>M: export()
+    M->>M: VideoComposer.export → PhotosSaver
+    U->>S: pop
+    S-->>M: released → isolated deinit
+    Note over M: cancel tasks, pause player, flush autosave
 ```
-NoVideo ──setVideo──▶ Ready ──startRecording──▶ Recording ──stopRecording──▶ Ready
-Ready ──swapVoices──▶ Swapping ──done/error──▶ Ready
-Ready ──export──▶ Exporting ──done──▶ Saving(Photos) ──▶ Ready
-Ready ──addEffect──▶ GeneratingEffect ──▶ Ready
-Ready ──generate (Type mode)──▶ Generating ──▶ Ready
+
+Every mutation of `Project` along the way is picked up by the autosaver and the manifest is rewritten
+atomically (see [persistence.md](persistence.md)).
+
+## 5. Activities, slots and the state machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> NoVideo
+    NoVideo --> Ready: setVideo
+    Ready --> Recording: startRecording
+    Recording --> Ready: stopRecording or interruption
+    Ready --> Swapping: swapVoices
+    Swapping --> Ready: done, error or cancel
+    Ready --> Exporting: export
+    Exporting --> Saving: exported
+    Saving --> Ready: added to Photos
+    Ready --> GeneratingEffect: addEffect
+    GeneratingEffect --> Ready
+    Ready --> Generating: generate, Type mode
+    Generating --> Ready
+    note right of Ready
+        Composing runs inside Ready
+        as a cheap, restartable activity
+    end note
 ```
 
-`EditorModel.activity` holds the current step; `run(_:slot:retry:operation:)` wraps each step so that an
-`ElevenLabsError` turns into a `Failure` with a recovery (open settings / retry / edit input / none) and the
-retry repeats *only that step*. Composing is also an activity so the UI can show "Updating preview…", but it
-is cheap and frequent.
+`EditorModel.activity` holds the current step. `run(_:slot:retry:operation:)` wraps each step so that an error
+becomes a `Failure` with a recovery (open settings, retry, edit input, none) and **the retry repeats only that
+step**.
 
-Work runs in one of two slots:
+### Two slots
 
-- **compose** — `recompose()`. Restartable: a newer compose cancels an older one.
-- **job** — swap, export, generation, effect, Photos save. Spends credits or minutes, so nothing cancels it
-  except the user's Cancel button. `isBusy` is true while a job runs; edits that would change the composition
-  (delete a take, switch mode, remove an effect) are disabled in the UI and ignored by the model, and a
-  `recompose()` requested meanwhile is deferred until the job finishes.
+| Slot | Runs | Cancellation | Why separate |
+|---|---|---|---|
+| **compose** | `recompose()` | A newer compose cancels an older one | Cheap and frequent; restarting is fine |
+| **job** | swap, export, generate, effect, Photos save | Only the user's Cancel button | Spends credits or minutes; a cancelled swap is already billed |
 
-A job that needs the edit rebuilt at its end calls `compose(videoURL:)` directly rather than `recompose()`;
-the latter would cancel the job's own slot.
+Consequences:
 
-`Failure.retry` re-enters the public method with plain values (`{ [weak self] in self?.export() }`), never the
-operation closure. A failure is stored on the model, so a retry that captured the operation would hold `self`
-through it and keep the editor alive after its screen was popped.
+- `isBusy` is true while a job runs. Edits that would change the composition (delete a take, switch mode, remove
+  an effect) are disabled in the UI and ignored by the model.
+- A `recompose()` requested during a job is deferred (`needsRecompose`) and runs when the job finishes.
+- A job that needs the edit rebuilt at its end calls `compose(videoURL:)` directly. Calling `recompose()` would
+  cancel the job's own slot.
 
-## Modes
+> **Decision.** `Failure.retry` re-enters the public method with plain values
+> (`{ [weak self] in self?.export() }`), never the operation closure.
+> **Why.** A failure is stored on the model. A retry that captured the operation would capture `self` through it,
+> and the editor would never deinit after its screen was popped.
 
-`EditingMode.record` is the product; `.type` is the original script-to-speech flow kept as a secondary path.
-They share the video, the player, the mix, the export and the effects lane; they differ in where the voice
-comes from (takes vs. one generated speech file) and where captions come from (transcripts vs. character
-timestamps).
+## 6. Modes
+
+```mermaid
+flowchart LR
+    subgraph Shared
+        V[video] --- PL[player] --- MX[mix] --- EX[export] --- EF[effects lane]
+    end
+    R["Record mode (the product)"] -->|voice from| T[takes]
+    R -->|captions from| TR[transcripts]
+    Y["Type mode (secondary)"] -->|voice from| G[one generated speech file]
+    Y -->|captions from| TS[TTS character timestamps]
+```
+
+`EditingMode.record` is the product; `.type` is the original script-to-speech flow kept as a secondary path. They
+share the video, the player, the mix, the export and the effects lane.

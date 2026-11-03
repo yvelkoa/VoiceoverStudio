@@ -1,109 +1,210 @@
 # Takes, characters and the timeline
 
-## Model
+> **At a glance**
+> - A take is never edited on disk. `TakeResolver` computes the audible slices; everything downstream (composer,
+>   captions, lanes) reads slices.
+> - Within one character the **newest take wins** where they overlap. Characters never cut each other.
+> - Live meter and stored waveform share one linear scale, so the trace does not change shape at Stop.
+> - Two transcription engines behind one function, chosen by locale.
+> - The scrubber is a `TimelineView`, not a `ScrollView`: position per frame from the player's clock.
+
+## 1. Model
+
+```mermaid
+classDiagram
+    class Character {
+        id
+        name
+        voice: Voice?
+        settings: VoiceSettings
+        colorIndex
+    }
+    class Take {
+        id
+        characterID
+        start
+        duration
+        recording: URL
+        sequence
+    }
+    class AudioSegment {
+        takeID
+        characterID
+        start
+        sourceOffset
+        duration
+    }
+    class SoundEffect {
+        id
+        prompt
+        start
+        duration
+        audio: URL
+    }
+    Character "1" <-- "*" Take : characterID
+    Take "1" <-- "0..2" AudioSegment : TakeResolver output
+```
+
+- `sequence` is the recording order and the only thing that decides precedence.
+- `start` is where the user pressed Record on the timeline; `duration` is what the recorder measured at Stop.
+
+## 2. Overlap resolution (`TakeResolver`, kit, tested)
 
 ```
-Character { id, name, voice: Voice?, settings: VoiceSettings, colorIndex }
-Take      { id, characterID, start, duration, recording: URL, sequence }
-AudioSegment { takeID, characterID, start, sourceOffset, duration }     // output of TakeResolver
-SoundEffect  { id, prompt, start, duration, audio: URL }
+timeline  0s        2s        4s        6s        8s
+take 1    [=========================]              seq 1
+take 2              [=========]                    seq 2 (punch-in)
+result    [ t1 ---- ][ t2 ---- ][ t1 ][            3 segments
+          off 0       off 0      off 4s
 ```
 
-`sequence` is the recording order and the only thing that decides precedence. `start` is where the user
-pressed Record on the timeline; `duration` is what the recorder measured at Stop.
+```mermaid
+flowchart LR
+    A[takes of one character] --> B[sort by sequence]
+    B --> C["for each take: subtract ranges of every later take"]
+    C --> D["0, 1 or 2 slices"]
+    D --> E["drop slices &lt; 50 ms"]
+    E --> F["AudioSegment(sourceOffset = slice.start − take.start)"]
+    F --> G["sort all characters' segments by start"]
+```
 
-## Overlap resolution (`TakeResolver`, kit, tested)
+> **Decision.** Resolution is computed, never written back to files.
+> **Why.** Nothing is destructive: deleting the newer take brings the older one back whole. The same resolution
+> feeds the composer, the captions and the lanes, so they can never disagree.
 
-Rule: **within one character the newest take wins where takes overlap; characters never cut each other.**
+## 3. Recording (`TakeRecorder`)
 
-Per character, takes are sorted by `sequence`; each take's range has every *later* take's range subtracted,
-which yields zero, one or two slices (a punch-in in the middle splits the older take in two). Slices shorter
-than 50 ms are dropped. Each surviving slice is an `AudioSegment` with `sourceOffset = slice.start -
-take.start`, so the composer plays exactly the right part of the file. The result is sorted by start.
+| Setting | Value |
+|---|---|
+| Format | AAC, 44.1 kHz, mono, high quality |
+| File | `take-<uuid>.m4a` in the project folder |
+| Permission | `AVAudioApplication.requestRecordPermission()` |
+| Metering | `peakPower` sampled every 20 ms (`Waveform.bucket`) |
+| Minimum length | `TakeResolver.minimumDuration`; shorter takes are discarded and their file deleted |
 
-Why not edit the files? Because nothing is destructive: deleting the newer take brings the older one back
-whole, and the same resolution feeds captions and the timeline lanes.
+```mermaid
+flowchart LR
+    T["metering tick (may run late)"] --> C["recorder.currentTime / bucket"]
+    C --> F["fill liveLevels up to that index"]
+    F --> S["strip draws live segment<br/>aligned with the playhead"]
+```
 
-## Recording (`TakeRecorder`)
+> **Decision.** `liveLevels` is filled **up to the recorder's own clock**, not by tick count.
+> **Why.** When the timer runs late the trace used to lag behind the playhead. Filling by clock keeps them aligned.
 
-- AAC, 44.1 kHz, mono, high quality, into `take-<uuid>.m4a` inside the project folder.
-- Permission via `AVAudioApplication.requestRecordPermission()`.
-- `isMeteringEnabled`; a `Task` samples `peakPower` every 20 ms (the `Waveform.bucket`) and fills
-  `liveLevels` **up to the recorder's own clock** (`currentTime / bucket`). Filling by clock rather than by
-  tick count is what keeps the live trace aligned with the playhead when the timer runs late.
-- Minimum take length is `TakeResolver.minimumDuration`; shorter stops are discarded and their file deleted.
-- `start(in:)` refuses while a recorder exists, and `EditorModel.isStartingRecording` covers the gap while
-  the microphone permission prompt is up, so a double tap on Record cannot start two recorders (the first
-  would have kept metering into `liveLevels` with no one to stop it).
+Double-tap protection: `start(in:)` refuses while a recorder exists, and `EditorModel.isStartingRecording` covers
+the gap while the microphone prompt is up. Otherwise the first recorder kept metering into `liveLevels` with no one
+to stop it.
 
-## Waveforms (`Waveform`)
+## 4. Waveforms (`Waveform`)
 
-The recording is read as 16 kHz mono 16-bit PCM through `AVAssetReader`; the peak of each 20 ms bucket is
-kept as linear amplitude × 1.6 gain, clipped to 1. The live meter converts dBFS to the same linear scale
-(`Waveform.level(fromDecibels:)`). Earlier the live meter was dB-linear and the stored waveform was
-normalised to its own maximum; the two looked nothing alike. Waveforms are not persisted; they are
-recomputed at utility priority when a project opens.
+| Source | Conversion |
+|---|---|
+| Stored file | `AVAssetReader` → 16 kHz mono 16-bit PCM → peak per 20 ms bucket → linear × 1.6, clipped to 1 |
+| Live meter | dBFS → `Waveform.level(fromDecibels:)` → same linear scale |
 
+> **Decision.** One scale for both.
+> **Why.** Earlier the live meter was dB-linear and the stored waveform was normalised to its own maximum. The trace
+> changed shape the moment Stop was pressed.
+
+Waveforms are not persisted; they are recomputed at utility priority when a project opens.
 `levels(from:duration:count:)` resamples a slice for drawing, so a split take draws the right part.
 
-## Transcription (`Transcriber`)
+## 5. Transcription (`Transcriber`)
 
-Two engines behind one function, chosen per locale:
+```mermaid
+flowchart TD
+    W["Transcriber.words(in:locale:)"] --> Q{SpeechTranscriber<br/>supports locale?}
+    Q -->|"en, de, fr, es, it, pt, ja, ko, zh"| OD["SpeechAnalyzer + SpeechTranscriber<br/>on device"]
+    Q -->|"else, incl. ru, uk"| SF["SFSpeechRecognizer<br/>Apple servers, ~1 min cap"]
+    OD --> R["[TimedWord] from audioTimeRange attributes"]
+    SF --> R
+```
 
-| Locale supported by `SpeechTranscriber` | Engine | Where it runs |
-|---|---|---|
-| en, de, fr, es, it, pt, ja, ko, zh (iOS 26 list) | `SpeechAnalyzer` + `SpeechTranscriber` | on device |
-| everything else, incl. **ru, uk** | `SFSpeechRecognizer` | Apple servers, ~1 min per request |
+Things that cost time to learn:
 
-Details that cost time to learn:
-
-- The app must `AssetInventory.reserve(locale:)` before `assetInstallationRequest`; otherwise the request
-  fails with "not subscribed to transcription.en".
-- `analyzer.analyzeSequence(from:)` + `finalizeAndFinish(through:)` leaves `transcriber.results` open
-  forever; `start(inputAudioFile:finishAfterFile: true)` ends the stream. Verified with synthesized speech.
-- Word times come from the `audioTimeRange` run attribute of the result's `AttributedString`.
-- `SFSpeechRecognizer` results are converted to `[TimedWord]` *inside* the callback because `SFTranscription`
-  is not `Sendable`; a lock-guarded `ResumeOnce` guards the continuation against a second callback, and a
-  `withTaskCancellationHandler` cancels the `SFSpeechRecognitionTask` when the Swift task is cancelled
-  (deleted take, closed editor); otherwise the request kept streaming to the server for up to a minute.
+1. Call `AssetInventory.reserve(locale:)` **before** `assetInstallationRequest`, or the request fails with
+   "not subscribed to transcription.en".
+2. `analyzeSequence(from:)` + `finalizeAndFinish(through:)` leaves `transcriber.results` open forever. Use
+   `start(inputAudioFile:finishAfterFile: true)`. Verified with synthesized speech.
+3. `SFTranscription` is not `Sendable`: convert to `[TimedWord]` *inside* the callback.
+4. A lock-guarded `ResumeOnce` protects the continuation from a second callback.
+5. `withTaskCancellationHandler` cancels the `SFSpeechRecognitionTask` with the Swift task (deleted take, closed
+   editor). Otherwise the request kept streaming to the server for up to a minute.
 
 The recording language is a setting (`RecordingLanguage`, UserDefaults), defaulting to the device locale.
 
-## Captions from takes (`CaptionAssembler`, kit, tested)
+## 6. Captions from takes (`CaptionAssembler`, kit, tested)
 
-For every segment, words of its take whose start lies inside the slice are shifted by
-`segment.start - sourceOffset` onto the timeline. Words are grouped per character and sent through
-`CaptionBuilder.captions`, which breaks lines at `. ! ?`, at 32 characters or at 3 s. Each character gets a
-`track` equal to its index, so two people talking at once render on two lines. Ids are unique across
+```mermaid
+flowchart LR
+    S[AudioSegment] --> W["words of its take with<br/>start inside the slice"]
+    W --> SH["shift by segment.start − sourceOffset"]
+    SH --> G[group per character]
+    G --> B["CaptionBuilder: break at . ! ?<br/>or 32 chars or 3 s"]
+    B --> C["Caption(track = character index)"]
+```
+
+Two people talking at once render on two lines because each character has its own `track`. Ids are unique across
 characters.
 
-## Voice swap (`VoiceSwapper`)
+## 7. Voice swap (`VoiceSwapper`)
 
-Each take is sent separately (cheaper than one flattened file: no silence billed, retries per take). At most
-three requests are in flight. The converted MP3 replaces the recording in `voiceClips()`; the length
-difference is stored as `conversionDrift` and flagged in the UI above 150 ms, since captions are timed from
-the recording. Changing a character's voice or settings invalidates only that character's conversions.
+```mermaid
+sequenceDiagram
+    participant M as EditorModel.swapVoices
+    participant S as VoiceSwapper (≤3 in flight)
+    participant X as ElevenLabs voice-changer
+    participant P as Project
+    M->>S: takes needing conversion
+    par up to three at once
+        S->>X: take A
+        S->>X: take B
+        S->>X: take C
+    end
+    X-->>S: MP3 per take
+    S-->>P: setConvertedAudio(take, url, drift) on main actor, one by one
+    M->>M: compose at the end
+```
 
-## The scrubber (`TimelineStrip`)
+> **Decision.** Each take is sent separately.
+> **Why.** Cheaper than one flattened file (no silence billed), and a retry re-sends one take, not all.
 
-A Photos-style strip: content slides under a fixed playhead. Three ways it moves, in priority order:
+The converted MP3 replaces the recording in `voiceClips()`. The length difference is `conversionDrift`, flagged
+above 150 ms because captions are timed from the recording. Changing a character's voice or settings invalidates
+only that character's conversions.
 
-1. **Scrubbing**: `DragGesture(minimumDistance: 4)` maps finger translation 1:1 to time
-   (`pointsPerSecond = 56`). On release, `coast(velocity:)` continues at the gesture's velocity with
-   UIScrollView's deceleration curve (0.998 per ms, stepped at 120 Hz) until it stops, hits an end, or a new
-   touch cancels it. `isScrubbing` stays true while coasting.
-2. **Playing**: `TimelineView(.animation)` re-evaluates every display frame and reads
-   `player.currentTime()`; the strip is positioned by `.offset`, not by scrolling.
-3. **Idle**: positioned at `currentTime` passed in by the owner (after seeks, stops, first appearance).
+## 8. The scrubber (`TimelineStrip`)
 
-A tap seeks to the tapped moment. Seeks issued while scrubbing are **coalesced** in `RecordingView`: one in
-flight, only the newest pending time is honoured, tolerance 1/30 s. Without that a 60 fps clip lagged
-behind the finger.
+A Photos-style strip: content slides under a fixed playhead.
 
-Why not a `ScrollView`: the first version used `ScrollPosition` with one long linear animation during
-playback. It was smooth but the animation outlived a pause and the strip kept moving after a take stopped;
-`TimelineView` has no such state.
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Scrubbing: drag of 4 pt or more
+    Scrubbing --> Coasting: release with velocity
+    Coasting --> Idle: velocity near 0, or hits an end
+    Coasting --> Scrubbing: new touch
+    Scrubbing --> Idle: release without velocity
+    Idle --> Playing: player rate above 0
+    Playing --> Idle: pause or stop
+    Idle --> Idle: tap seeks
+```
 
-Lanes: one per character in declaration order with the resolved segments (tinted block + waveform, identified
-by the whole `AudioSegment` value, which is `Hashable`), plus a live segment in full colour while recording; one Effects lane with prompt text; the trim range is shown by
-dimming the strip outside it.
+| State | Source of position |
+|---|---|
+| Scrubbing | finger translation 1:1 to time, `pointsPerSecond = 56` |
+| Coasting | `coast(velocity:)`, UIScrollView's curve: ×0.998 per ms, stepped at 120 Hz |
+| Playing | `TimelineView(.animation)` reads `player.currentTime()` every display frame |
+| Idle | `currentTime` passed in by the owner after seeks, stops, first appearance |
+
+Seeks issued while scrubbing are **coalesced** in `RecordingView`: one in flight, only the newest pending time is
+honoured, tolerance 1/30 s. Without that a 60 fps clip lagged behind the finger.
+
+> **Decision.** `TimelineView` + `.offset`, not `ScrollView` + `ScrollPosition`.
+> **Why.** The scroll version animated one long linear scroll during playback. Smooth, but the animation outlived a
+> pause and the strip kept moving after a take stopped. `TimelineView` has no such state.
+
+Lanes: one per character in declaration order with the resolved segments (tinted block + waveform, identified by
+the whole `AudioSegment` value), a live segment in full colour while recording, one Effects lane with prompt text.
+The trim range is shown by dimming the strip outside it.

@@ -1,59 +1,103 @@
 # ElevenLabs integration
 
-All calls go through `ElevenLabsClient` (kit, an actor). The key is read lazily through a closure from the
-Keychain (`APIKeyStore`), so a key change needs no new client. Nothing is called until the user presses a
-button that says it will cost credits. The default transport is a `URLSession` with a 120 s request timeout:
-the voice changer uploads a whole take and waits for the conversion.
+> **At a glance**
+> - Four endpoints, one actor (`ElevenLabsClient` in the kit), key read lazily from the Keychain.
+> - Nothing is called until the user presses a button that says it will cost credits.
+> - The key needs **four** permissions; a missing one is a 401 that looks like a bad key unless handled.
+> - Every error carries a `Recovery` that becomes the alert's buttons.
 
-`AppModel.saveAndVerify` saves the key, then fetches the voice list. A `401` puts the previous key back (or
-removes the new one) so the banner and the Settings state stay truthful; a network error keeps the new key,
-because the key may be fine. Removing the key also clears the client's voice cache.
+## 1. Who calls what
 
-## Endpoints
+```mermaid
+flowchart LR
+    VP[VoicePickerView] --> V["GET /v1/voices<br/>(cached in the actor)"]
+    AK["AppModel.saveAndVerify"] --> V
+    TM["Type mode: generate()"] --> TTS["POST /v1/text-to-speech/{id}/with-timestamps"]
+    SW["swapVoices() → VoiceSwapper"] --> STS["POST /v1/voice-changer/{id}<br/>multipart"]
+    EF["addEffect()"] --> SFX["POST /v1/sound-generation"]
+    V & TTS & STS & SFX --> C["ElevenLabsClient (actor)"]
+    C --> T["HTTPTransport<br/>URLSession, 120 s timeout"]
+```
 
-| Call | Endpoint | Used by |
+| Call | Endpoint | Model / format |
 |---|---|---|
-| `voices(forceRefresh:)` | `GET /v1/voices` | voice picker, key verification; cached in the actor |
-| `speech(text:voiceID:modelID:settings:)` | `POST /v1/text-to-speech/{id}/with-timestamps` | Type mode; returns MP3 + per-character times |
-| `changeVoice(audio:fileName:mimeType:voiceID:modelID:settings:removeBackgroundNoise:)` | `POST /v1/voice-changer/{id}` (multipart) | voice swap of takes |
-| `soundEffect(prompt:durationSeconds:)` | `POST /v1/sound-generation` | effects lane |
+| `voices(forceRefresh:)` | `GET /v1/voices` | cached |
+| `speech(text:voiceID:modelID:settings:)` | `POST /v1/text-to-speech/{id}/with-timestamps` | `eleven_multilingual_v2`, returns MP3 + per-character times |
+| `changeVoice(audio:fileName:mimeType:voiceID:modelID:settings:removeBackgroundNoise:)` | `POST /v1/voice-changer/{id}` | `eleven_multilingual_sts_v2`, multipart |
+| `soundEffect(prompt:durationSeconds:)` | `POST /v1/sound-generation` | |
 
-Models: `eleven_multilingual_v2` for TTS, `eleven_multilingual_sts_v2` for the voice changer. Output format
-`mp3_44100_128` everywhere.
+Output format is `mp3_44100_128` everywhere. The 120 s timeout exists because the voice changer uploads a whole
+take and waits for the conversion.
 
-## Key permissions
+## 2. Key handling
 
-The key needs **Text to Speech, Speech to Speech (Voice Changer), Voices, Sound Effects**. A key missing one
-of them gets HTTP 401 with `detail.status = "missing_permissions"`; the client maps that to
-`ElevenLabsError.missingPermission(message)` and shows the server's message, which names the permission. A
-plain 401 or `invalid_api_key` is `.invalidAPIKey`. Mixing the two up cost a debugging session.
+```mermaid
+flowchart TD
+    S[Save key] --> W[write to Keychain]
+    W --> F["GET /v1/voices"]
+    F -->|200| OK[keep key, cache voices]
+    F -->|401| RB["roll back to the previous key<br/>(or remove), clear cache"]
+    F -->|network error| KEEP["keep the new key:<br/>it may be fine"]
+```
 
-## Error model
+The key is read through a closure, so a key change needs no new client. Removing the key clears the voice cache.
 
-`ElevenLabsError` cases carry a `Recovery`: `.openSettings` (key problems), `.retry` (rate limit, server,
-network), `.editInput` (validation), `.none` (quota, permission, decoding). `EditorModel.Failure` turns
-that into the alert's buttons; the retry closure re-runs only the failed step.
+### Permissions the key needs
 
-## Voice settings
+| Permission | Used by |
+|---|---|
+| Text to Speech | Type mode |
+| Speech to Speech (Voice Changer) | voice swap |
+| Voices | picker, verification |
+| Sound Effects | effects lane |
 
-`VoiceSettings { stability, similarityBoost, style, speed, useSpeakerBoost }`, all optional, encoded with
-snake_case keys. Two presets: `.narration` (stable) and `.expressive` (stability 0.3, style 0.4), the
-latter is the default for voice conversion so the result follows the recording's delivery.
+> **Decision.** HTTP 401 with `detail.status == "missing_permissions"` maps to
+> `ElevenLabsError.missingPermission(message)` and shows the server's message, which names the permission.
+> **Why.** A plain 401 or `invalid_api_key` is `.invalidAPIKey`. Treating both as "key rejected" cost a debugging
+> session on a key that was valid but lacked Speech to Speech.
 
-## Credits
+## 3. Error model
 
-- TTS: one credit per character of script.
-- Voice changer: billed by audio length; the Swap button shows the seconds it will send, only takes without
-  a current conversion are sent, and a changed voice invalidates just that character.
-- Sound effects: billed per generated second; the sheet says so; one request per effect, kept forever.
+```mermaid
+flowchart LR
+    E[ElevenLabsError] --> R1[".openSettings<br/>invalid key"]
+    E --> R2[".retry<br/>rate limit, server, network"]
+    E --> R3[".editInput<br/>validation"]
+    E --> R4[".none<br/>quota, permission, decoding"]
+    R1 & R2 & R3 & R4 --> F["EditorModel.Failure → alert buttons"]
+    F -->|Retry| S["re-run only the failed step"]
+```
 
-## Timing after a swap
+## 4. Voice settings
 
-Speech-to-speech preserves pace closely but not exactly. After each conversion the output length is
-compared with the recording; the difference is `conversionDrift`. Above 150 ms the take is flagged in the
-list and the timeline, because captions are timed from the original recording.
+`VoiceSettings { stability, similarityBoost, style, speed, useSpeakerBoost }`, all optional, encoded with snake_case
+keys.
 
-## Multipart
+| Preset | Values | Used for |
+|---|---|---|
+| `.narration` | stable | Type mode default |
+| `.expressive` | stability 0.3, style 0.4 | voice conversion default, so the result follows the recording's delivery |
 
-`MultipartForm` is a 40-line encoder; the test asserts the exact body layout including the boundary
-terminator and that the binary audio is embedded unchanged.
+## 5. Credits
+
+| Call | Billed by | What the UI does about it |
+|---|---|---|
+| TTS | characters of script | footer shows the count |
+| Voice changer | audio length | Swap button shows the seconds it will send; only takes without a current conversion go; a changed voice invalidates only that character |
+| Sound effects | generated seconds | the sheet says so; one request per effect, kept forever |
+
+## 6. Timing after a swap
+
+```
+recording   |██████████████████|  4.00 s
+converted   |████████████████████|  4.21 s   → conversionDrift = 0.21 s  (flagged above 0.15 s)
+captions    timed from the recording
+```
+
+Speech-to-speech preserves pace closely but not exactly. The take is flagged in the list and the timeline when the
+drift exceeds 150 ms, because captions are timed from the original recording.
+
+## 7. Multipart
+
+`MultipartForm` is a 40-line encoder. The test asserts the exact body layout, including the boundary terminator
+and that the binary audio is embedded unchanged.
