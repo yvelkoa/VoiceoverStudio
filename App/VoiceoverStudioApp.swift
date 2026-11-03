@@ -2,18 +2,11 @@ import SwiftUI
 
 @main
 struct VoiceoverStudioApp: App {
-    @State private var app: AppModel
-    @State private var editor: EditorModel
-
-    init() {
-        let app = AppModel()
-        _app = State(initialValue: app)
-        _editor = State(initialValue: EditorModel(client: app.client))
-    }
+    @State private var app = AppModel()
 
     var body: some Scene {
         WindowGroup {
-            EditorView(model: editor)
+            ProjectListView()
                 .environment(app)
         }
     }

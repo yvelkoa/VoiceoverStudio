@@ -13,7 +13,7 @@ struct EditorView: View {
     @State var showsPreview = false
 
     var body: some View {
-        NavigationStack {
+        Group {
             Form {
                 if !app.hasAPIKey {
                     apiKeyBanner
@@ -33,7 +33,8 @@ struct EditorView: View {
                 resultSection
             }
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle("Voiceover Studio")
+            .navigationTitle(model.project.title)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Settings", systemImage: "gearshape") { showsSettings = true }
@@ -52,6 +53,7 @@ struct EditorView: View {
             }
             .onChange(of: pickedItem) { _, item in loadVideo(item) }
             .task { await loadDebugVideo() }
+            .onDisappear { model.close() }
         }
     }
 

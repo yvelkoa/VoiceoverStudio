@@ -23,25 +23,26 @@ nonisolated enum VoiceSwapper {
     static func convert(
         _ jobs: [Job],
         client: ElevenLabsClient,
+        into directory: URL,
         onOutcome: @MainActor @Sendable (Outcome) -> Void
     ) async throws {
         try await withThrowingTaskGroup(of: Outcome.self) { group in
             var pending = jobs[...]
             for job in pending.prefix(maxConcurrentRequests) {
-                group.addTask { try await convert(job, client: client) }
+                group.addTask { try await convert(job, client: client, into: directory) }
             }
             pending = pending.dropFirst(maxConcurrentRequests)
 
             for try await outcome in group {
                 await onOutcome(outcome)
                 if let next = pending.popFirst() {
-                    group.addTask { try await convert(next, client: client) }
+                    group.addTask { try await convert(next, client: client, into: directory) }
                 }
             }
         }
     }
 
-    private static func convert(_ job: Job, client: ElevenLabsClient) async throws -> Outcome {
+    private static func convert(_ job: Job, client: ElevenLabsClient, into directory: URL) async throws -> Outcome {
         let recording = try Data(contentsOf: job.take.recording)
         let converted = try await client.changeVoice(
             audio: recording,
@@ -53,7 +54,7 @@ nonisolated enum VoiceSwapper {
         )
         try Task.checkCancellation()
 
-        let url = URL.temporaryDirectory.appending(path: "swapped-\(job.take.id.uuidString).mp3")
+        let url = directory.appending(path: "swapped-\(job.take.id.uuidString).mp3")
         try converted.write(to: url)
         let duration = try await AVURLAsset(url: url).load(.duration).seconds
         return Outcome(takeID: job.take.id, audio: url, drift: duration - job.take.duration)

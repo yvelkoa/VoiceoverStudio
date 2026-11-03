@@ -8,7 +8,7 @@ nonisolated enum AudioKind: Hashable, Sendable {
 }
 
 /// Levels per kind, 0...1.
-nonisolated struct MixLevels: Equatable, Sendable {
+nonisolated struct MixLevels: Equatable, Codable, Sendable {
     var original: Float = 0.25
     var voice: Float = 1
     var effect: Float = 0.8
@@ -122,7 +122,8 @@ nonisolated enum VideoComposer {
         _ composed: ComposedVideo,
         captions: [Caption],
         levels: MixLevels,
-        range: ClosedRange<Double>? = nil
+        range: ClosedRange<Double>? = nil,
+        to output: URL
     ) async throws -> URL {
         var configuration = composed.videoConfiguration
         let size = configuration.renderSize
@@ -152,7 +153,6 @@ nonisolated enum VideoComposer {
             session.timeRange = CMTimeRange(start: start, end: end)
         }
 
-        let output = URL.temporaryDirectory.appending(path: "voiceover-\(UUID().uuidString).mp4")
         try await session.export(to: output, as: .mp4)
         return output
     }

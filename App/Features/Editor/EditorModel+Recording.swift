@@ -29,7 +29,7 @@ extension EditorModel {
                 recordingStart = player.currentTime().seconds
                 // The video is silenced while recording so the microphone doesn't pick it up.
                 player.isMuted = true
-                _ = try recorder.start()
+                _ = try recorder.start(in: project.folder)
                 player.play()
             } catch {
                 player.isMuted = false
@@ -104,7 +104,7 @@ extension EditorModel {
             return VoiceSwapper.Job(take: take, voiceID: voice.voiceID, settings: character.settings)
         }
         run(.swapping) { [client, project] in
-            try await VoiceSwapper.convert(jobs, client: client) { outcome in
+            try await VoiceSwapper.convert(jobs, client: client, into: project.folder) { outcome in
                 project.setConvertedAudio(outcome.audio, drift: outcome.drift, for: outcome.takeID)
             }
             self.recompose()

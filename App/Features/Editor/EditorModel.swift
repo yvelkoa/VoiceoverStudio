@@ -5,12 +5,7 @@ import VoiceoverKit
 
 @Observable
 final class EditorModel {
-    enum Mode: Hashable {
-        /// Type a script; ElevenLabs reads it.
-        case type
-        /// Record takes with the microphone; ElevenLabs swaps the voice later.
-        case record
-    }
+    typealias Mode = EditingMode
 
     enum Activity: Equatable {
         case generating, generatingEffect, composing, exporting, swapping
@@ -24,45 +19,76 @@ final class EditorModel {
         var retry: (() -> Void)?
     }
 
-    var mode: Mode = .record {
-        didSet {
-            guard mode != oldValue else { return }
-            switch mode {
+    var mode: Mode {
+        get { project.mode }
+        set {
+            guard newValue != project.mode else { return }
+            project.mode = newValue
+            switch newValue {
             case .record: rebuildCaptions()
-            case .type: captions = typeCaptions
+            case .type: captions = project.typeCaptions
             }
             recompose()
         }
     }
 
-    let project = Project()
+    let project: Project
     let recorder = TakeRecorder()
 
-    // Type mode input
-    var script = ""
-    var voice: Voice?
+    // Type mode input, stored on the project so it survives relaunch
+    var script: String {
+        get { project.script }
+        set { project.script = newValue }
+    }
+    var voice: Voice? {
+        get { project.voice }
+        set { project.voice = newValue }
+    }
 
     // Output
     /// Written by the model and its extensions; views only read it.
     var captions: [Caption] = []
     private(set) var player: AVPlayer?
-    private(set) var exportedURL: URL?
+    var exportedURL: URL? { project.exportedURL }
     private(set) var activity: Activity?
     var failure: Failure?
 
     let client: ElevenLabsClient
 
-    /// Generated audio is kept on disk so moving the sound effect re-composes without new API calls.
-    private var speechFile: URL?
-    private var typeCaptions: [Caption] = []
-    private var effectFile: URL?
+    private var speechFile: URL? { project.speechFile }
     private var composed: ComposedVideo?
     private var work: Task<Void, Never>?
+    private var autosaver: ProjectAutosaver?
     var recordingStart: Double = 0
     var transcriptions: [Take.ID: Task<Void, Never>] = [:]
 
-    init(client: ElevenLabsClient) {
+    init(project: Project, client: ElevenLabsClient, store: ProjectStore?) {
+        self.project = project
         self.client = client
+        if let store { autosaver = ProjectAutosaver(project: project, store: store) }
+        restore()
+    }
+
+    /// Flushes the last changes; call when the editor goes away.
+    func close() {
+        cancel()
+        player?.pause()
+        autosaver?.stop()
+    }
+
+    /// Brings a loaded project back to life: captions, waveforms and the player.
+    private func restore() {
+        switch mode {
+        case .record: rebuildCaptions()
+        case .type: captions = project.typeCaptions
+        }
+        recompose()
+        let sources = project.takes.map { ($0.id, $0.recording) } + project.effects.map { ($0.id, $0.audio) }
+        for (id, url) in sources {
+            Task { [project] in
+                if let waveform = try? await Waveform.load(url) { project.setWaveform(waveform, for: id) }
+            }
+        }
     }
 
     var videoURL: URL? { project.videoURL }
@@ -94,12 +120,27 @@ final class EditorModel {
 
     // MARK: - Video
 
-    func setVideo(_ url: URL) async {
+    /// Moves a picked video into the project folder and starts over with it.
+    func setVideo(_ picked: URL) async {
         cancel()
         resetResult()
-        let duration = (try? await AVURLAsset(url: url).load(.duration).seconds) ?? 0
-        project.setVideo(url, duration: duration)
+        let destination = project.fileURL("video", extension: picked.pathExtension.isEmpty ? "mov" : picked.pathExtension)
+        do {
+            if picked.path.hasPrefix(project.folder.path) {
+                try FileManager.default.moveItem(at: picked, to: destination)
+            } else {
+                try FileManager.default.copyItem(at: picked, to: destination)
+                try? FileManager.default.removeItem(at: picked)
+            }
+        } catch {
+            failure = Failure(message: "Couldn't store this video.", recovery: .none)
+            return
+        }
+        let duration = (try? await AVURLAsset(url: destination).load(.duration).seconds) ?? 0
+        project.setVideo(destination, duration: duration)
         recompose()
+        let thumbnail = project.folder.appending(path: ProjectDocument.thumbnailName)
+        Task { try? await Thumbnail.write(for: destination, to: thumbnail) }
     }
 
     // MARK: - Type mode
@@ -109,11 +150,11 @@ final class EditorModel {
         let script = trimmedScript
         resetResult()
 
-        run(.generating) { [client] in
+        run(.generating) { [client, project] in
             let generatedSpeech = try await client.speech(text: script, voiceID: voice.voiceID)
-            self.speechFile = try Self.write(generatedSpeech.audio, name: "speech")
-            self.typeCaptions = CaptionBuilder.captions(from: generatedSpeech.alignment)
-            self.captions = self.typeCaptions
+            project.speechFile = try Self.write(generatedSpeech.audio, to: project.fileURL("speech", extension: "mp3"))
+            project.typeCaptions = CaptionBuilder.captions(from: generatedSpeech.alignment)
+            self.captions = project.typeCaptions
             try await self.compose(videoURL: videoURL)
         }
     }
@@ -139,8 +180,12 @@ final class EditorModel {
         let captions = captions
         let levels = project.mix
         let range = project.isTrimmed ? project.trimRange : nil
-        run(.exporting) {
-            self.exportedURL = try await VideoComposer.export(composed, captions: captions, levels: levels, range: range)
+        let output = project.fileURL("export", extension: "mp4")
+        run(.exporting) { [project] in
+            project.clearExport()
+            project.exportedURL = try await VideoComposer.export(
+                composed, captions: captions, levels: levels, range: range, to: output
+            )
         }
     }
 
@@ -189,7 +234,7 @@ final class EditorModel {
         if clips.isEmpty { levels.original = 1 } // nothing to duck under yet
         item.audioMix = composed.audioMix(levels)
         self.composed = composed
-        exportedURL = nil
+        project.clearExport()
         if let player {
             player.replaceCurrentItem(with: item)
             if let resumeAt { await player.seek(to: resumeAt) }
@@ -229,13 +274,11 @@ final class EditorModel {
         player = nil
         composed = nil
         captions = []
-        typeCaptions = []
-        exportedURL = nil
-        speechFile = nil
+        project.clearTypeResult()
+        project.clearExport()
     }
 
-    nonisolated static func write(_ data: Data, name: String) throws -> URL {
-        let url = URL.temporaryDirectory.appending(path: "\(name)-\(UUID().uuidString).mp3")
+    nonisolated static func write(_ data: Data, to url: URL) throws -> URL {
         try data.write(to: url)
         return url
     }

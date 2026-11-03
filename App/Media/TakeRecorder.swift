@@ -28,12 +28,12 @@ final class TakeRecorder {
     }
 
     /// Starts a new file and returns its URL. The session is configured so playback keeps working.
-    func start() throws -> URL {
+    func start(in directory: URL) throws -> URL {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
         try session.setActive(true)
 
-        let url = URL.temporaryDirectory.appending(path: "take-\(UUID().uuidString).m4a")
+        let url = directory.appending(path: "take-\(UUID().uuidString).m4a")
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
             AVSampleRateKey: 44_100,

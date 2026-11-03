@@ -15,6 +15,7 @@ nonisolated struct APIKeyStore: Sendable {
 @Observable
 final class AppModel {
     let client: ElevenLabsClient
+    let store = ProjectStore()
     private(set) var hasAPIKey: Bool
 
     private let keyStore: APIKeyStore

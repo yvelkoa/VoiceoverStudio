@@ -10,12 +10,12 @@ extension EditorModel {
         guard !trimmed.isEmpty, activity == nil else { return }
         run(.generatingEffect) { [client, project] in
             let data = try await client.soundEffect(prompt: trimmed, durationSeconds: durationSeconds)
-            let url = try Self.write(data, name: "effect")
+            let url = try Self.write(data, to: project.fileURL("effect", extension: "mp3"))
             let duration = try await AVURLAsset(url: url).load(.duration).seconds
             let effect = SoundEffect(id: UUID(), prompt: trimmed, start: start, duration: duration, audio: url)
             project.add(effect)
             self.recompose()
-            if let waveform = try? await Waveform.load(url) { project.setWaveform(waveform, forEffect: effect.id) }
+            if let waveform = try? await Waveform.load(url) { project.setWaveform(waveform, for: effect.id) }
         }
     }
 
