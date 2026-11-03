@@ -10,10 +10,12 @@ extension URLSession: HTTPTransport {
     }
 }
 
-/// Thin client over the three ElevenLabs endpoints the app needs.
+/// Thin client over the ElevenLabs endpoints the app needs.
 /// An actor because it owns the voice cache, which several screens read concurrently.
 public actor ElevenLabsClient {
     public static let defaultModelID = "eleven_multilingual_v2"
+    public static let defaultVoiceChangerModelID = "eleven_multilingual_sts_v2"
+    static let outputFormat = "mp3_44100_128"
 
     private let baseURL: URL
     private let transport: any HTTPTransport
@@ -42,11 +44,19 @@ public actor ElevenLabsClient {
     }
 
     /// Text to speech with per-character timestamps, used to sync captions to the voice.
-    public func speech(text: String, voiceID: String, modelID: String = defaultModelID) async throws -> Speech {
-        let body = ["text": text, "model_id": modelID]
+    public func speech(
+        text: String,
+        voiceID: String,
+        modelID: String = defaultModelID,
+        settings: VoiceSettings? = nil
+    ) async throws -> Speech {
+        var body: [String: any Sendable] = ["text": text, "model_id": modelID]
+        if let settings {
+            body["voice_settings"] = settings.jsonObject
+        }
         let data = try await perform(
             path: "/v1/text-to-speech/\(voiceID)/with-timestamps",
-            query: [URLQueryItem(name: "output_format", value: "mp3_44100_128")],
+            query: [URLQueryItem(name: "output_format", value: Self.outputFormat)],
             method: "POST",
             json: body
         )
@@ -66,6 +76,33 @@ public actor ElevenLabsClient {
         return try await perform(path: "/v1/sound-generation", method: "POST", json: body)
     }
 
+    /// Speech to speech: the same words, timing and emotion as `audio`, spoken by `voiceID`. Returns MP3 data.
+    /// Timing is preserved closely but not exactly; callers should compare durations.
+    public func changeVoice(
+        audio: Data,
+        fileName: String,
+        mimeType: String,
+        voiceID: String,
+        modelID: String = defaultVoiceChangerModelID,
+        settings: VoiceSettings? = .expressive,
+        removeBackgroundNoise: Bool = false
+    ) async throws -> Data {
+        var form = MultipartForm()
+        form.addFile("audio", fileName: fileName, mimeType: mimeType, data: audio)
+        form.addField("model_id", value: modelID)
+        form.addField("remove_background_noise", value: removeBackgroundNoise ? "true" : "false")
+        if let settings {
+            form.addField("voice_settings", value: String(decoding: try JSONEncoder().encode(settings), as: UTF8.self))
+        }
+        return try await perform(
+            path: "/v1/voice-changer/\(voiceID)",
+            query: [URLQueryItem(name: "output_format", value: Self.outputFormat)],
+            method: "POST",
+            body: form.encoded(),
+            contentType: form.contentType
+        )
+    }
+
     // MARK: - Plumbing
 
     private func perform(
@@ -73,6 +110,22 @@ public actor ElevenLabsClient {
         query: [URLQueryItem] = [],
         method: String,
         json: [String: any Sendable]? = nil
+    ) async throws -> Data {
+        try await perform(
+            path: path,
+            query: query,
+            method: method,
+            body: json.map { try JSONSerialization.data(withJSONObject: $0) },
+            contentType: json == nil ? nil : "application/json"
+        )
+    }
+
+    private func perform(
+        path: String,
+        query: [URLQueryItem],
+        method: String,
+        body: Data?,
+        contentType: String?
     ) async throws -> Data {
         guard let key = apiKey(), !key.isEmpty else { throw ElevenLabsError.missingAPIKey }
 
@@ -82,9 +135,9 @@ public actor ElevenLabsClient {
         var request = URLRequest(url: components.url!)
         request.httpMethod = method
         request.setValue(key, forHTTPHeaderField: "xi-api-key")
-        if let json {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONSerialization.data(withJSONObject: json)
+        if let body {
+            request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+            request.httpBody = body
         }
 
         let data: Data

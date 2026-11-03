@@ -32,6 +32,53 @@ struct ElevenLabsClientTests {
         #expect(body == ["text": "Hi there.", "model_id": ElevenLabsClient.defaultModelID])
     }
 
+    @Test func speechPassesVoiceSettingsWhenGiven() async throws {
+        let transport = MockTransport(responses: [.init(status: 200, body: try fixture("speech"))])
+        let client = ElevenLabsClient(transport: transport, apiKey: { "key" })
+
+        _ = try await client.speech(text: "Hi", voiceID: "v", settings: VoiceSettings(stability: 0.3, speed: 1.1))
+
+        let request = try #require(transport.requests.first)
+        let body = try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+        let settings = body?["voice_settings"] as? [String: Double]
+        #expect(settings == ["stability": 0.3, "speed": 1.1], "nil fields are omitted, keys use snake_case")
+    }
+
+    @Test func changeVoiceUploadsMultipartForm() async throws {
+        let transport = MockTransport(responses: [.init(status: 200, body: Data("ID3".utf8))])
+        let client = ElevenLabsClient(transport: transport, apiKey: { "key" })
+        let audio = Data([0x00, 0xFF, 0x0D, 0x0A, 0x2D, 0x2D])
+
+        let result = try await client.changeVoice(
+            audio: audio,
+            fileName: "take.m4a",
+            mimeType: "audio/mp4",
+            voiceID: "voice_b",
+            settings: VoiceSettings(stability: 0.3),
+            removeBackgroundNoise: true
+        )
+
+        #expect(result == Data("ID3".utf8))
+        let request = try #require(transport.requests.first)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/v1/voice-changer/voice_b")
+        #expect(request.url?.query == "output_format=mp3_44100_128")
+
+        let contentType = try #require(request.value(forHTTPHeaderField: "Content-Type"))
+        let boundary = try #require(contentType.split(separator: "boundary=").last.map(String.init))
+        #expect(contentType.hasPrefix("multipart/form-data; boundary="))
+
+        let body = try #require(request.httpBody)
+        let text = String(decoding: body, as: UTF8.self)
+        let filePart = "Content-Disposition: form-data; name=\"audio\"; filename=\"take.m4a\"\r\nContent-Type: audio/mp4\r\n\r\n"
+        #expect(text.contains(filePart))
+        #expect(text.contains("name=\"model_id\"\r\n\r\neleven_multilingual_sts_v2\r\n"))
+        #expect(text.contains("name=\"remove_background_noise\"\r\n\r\ntrue\r\n"))
+        #expect(text.contains("name=\"voice_settings\"\r\n\r\n{\"stability\":0.3}\r\n"))
+        #expect(text.hasSuffix("--\(boundary)--\r\n"))
+        #expect(body.range(of: audio) != nil, "binary audio is embedded unchanged")
+    }
+
     @Test func missingKeyFailsWithoutNetwork() async {
         let transport = MockTransport(responses: [])
         let client = ElevenLabsClient(transport: transport, apiKey: { nil })
