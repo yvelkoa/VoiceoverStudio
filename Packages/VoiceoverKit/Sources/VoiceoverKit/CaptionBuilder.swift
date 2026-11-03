@@ -17,12 +17,15 @@ public struct Caption: Identifiable, Equatable, Sendable {
     public let text: String
     public let start: Double
     public let end: Double
+    /// Which line the caption is drawn on when several are visible at once (one per speaker).
+    public let track: Int
 
-    public init(id: Int, text: String, start: Double, end: Double) {
+    public init(id: Int, text: String, start: Double, end: Double, track: Int = 0) {
         self.id = id
         self.text = text
         self.start = start
         self.end = end
+        self.track = track
     }
 }
 
@@ -60,7 +63,9 @@ public enum CaptionBuilder {
     public static func captions(
         from words: [TimedWord],
         maxCharacters: Int = 32,
-        maxDuration: Double = 3
+        maxDuration: Double = 3,
+        track: Int = 0,
+        firstID: Int = 0
     ) -> [Caption] {
         var captions: [Caption] = []
         var line: [TimedWord] = []
@@ -68,7 +73,7 @@ public enum CaptionBuilder {
         func flush() {
             guard let first = line.first, let last = line.last else { return }
             let text = line.map(\.text).joined(separator: " ")
-            captions.append(Caption(id: captions.count, text: text, start: first.start, end: last.end))
+            captions.append(Caption(id: firstID + captions.count, text: text, start: first.start, end: last.end, track: track))
             line.removeAll()
         }
 

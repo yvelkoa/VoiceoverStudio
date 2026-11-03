@@ -7,6 +7,7 @@ struct SettingsView: View {
 
     @State private var key = ""
     @State private var status: Status = .idle
+    @AppStorage(RecordingLanguage.key) private var recordingLanguage = ""
 
     private enum Status: Equatable {
         case idle, checking, valid
@@ -30,6 +31,18 @@ struct SettingsView: View {
                 }
 
                 statusSection
+
+                Section {
+                    Picker("Recording language", selection: $recordingLanguage) {
+                        Text("Device language").tag("")
+                        ForEach(RecordingLanguage.choices, id: \.self) { id in
+                            Text(Locale.current.localizedString(forIdentifier: id) ?? id).tag(id)
+                        }
+                    }
+                } footer: {
+                    Text("Used to recognise the words in your takes for captions. "
+                        + "Some languages are processed on Apple's servers.")
+                }
 
                 if app.hasAPIKey {
                     Section {

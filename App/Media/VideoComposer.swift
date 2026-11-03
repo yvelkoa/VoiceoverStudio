@@ -170,7 +170,9 @@ nonisolated enum VideoComposer {
         layer.alignmentMode = .center
         layer.isWrapped = true
         layer.contentsScale = 2
-        layer.frame = CGRect(x: size.width * 0.06, y: size.height * 0.1, width: size.width * 0.88, height: height)
+        // Higher tracks stack above the first one, so simultaneous speakers don't overprint.
+        let y = size.height * 0.1 + CGFloat(caption.track) * height
+        layer.frame = CGRect(x: size.width * 0.06, y: y, width: size.width * 0.88, height: height)
         layer.opacity = 0
 
         let visible = CABasicAnimation(keyPath: "opacity")

@@ -25,7 +25,14 @@ final class EditorModel {
     }
 
     var mode: Mode = .record {
-        didSet { if mode != oldValue { recompose() } }
+        didSet {
+            guard mode != oldValue else { return }
+            switch mode {
+            case .record: rebuildCaptions()
+            case .type: captions = typeCaptions
+            }
+            recompose()
+        }
     }
 
     let project = Project()
@@ -46,10 +53,12 @@ final class EditorModel {
 
     /// Generated audio is kept on disk so moving the sound effect re-composes without new API calls.
     private var speechFile: URL?
+    private var typeCaptions: [Caption] = []
     private var effectFile: URL?
     private var composed: ComposedVideo?
     private var work: Task<Void, Never>?
     private var recordingStart: Double = 0
+    private var transcriptions: [Take.ID: Task<Void, Never>] = [:]
 
     init(client: ElevenLabsClient) {
         self.client = client
@@ -113,7 +122,8 @@ final class EditorModel {
 
             self.speechFile = try Self.write(generatedSpeech.audio, name: "speech")
             self.effectFile = try effectData.map { try Self.write($0, name: "effect") }
-            self.captions = CaptionBuilder.captions(from: generatedSpeech.alignment)
+            self.typeCaptions = CaptionBuilder.captions(from: generatedSpeech.alignment)
+            self.captions = self.typeCaptions
             try await self.compose(videoURL: videoURL)
         }
     }
@@ -146,14 +156,49 @@ final class EditorModel {
         player.isMuted = false
         let duration = recorder.stop()
         guard let url = recorder.lastRecordingURL, duration >= TakeResolver.minimumDuration else { return }
-        project.addTake(characterID: character.id, start: recordingStart, duration: duration, recording: url)
+        let take = project.addTake(characterID: character.id, start: recordingStart, duration: duration, recording: url)
         player.seek(to: CMTime(seconds: recordingStart, preferredTimescale: 600))
+        rebuildCaptions()
         recompose()
+        transcribe(take)
     }
 
     func delete(_ take: Take) {
+        transcriptions[take.id]?.cancel()
+        transcriptions[take.id] = nil
         project.remove(take)
+        rebuildCaptions()
         recompose()
+    }
+
+    /// Recognises the words in a take so captions can follow it. Runs alongside other work.
+    func transcribe(_ take: Take) {
+        transcriptions[take.id]?.cancel()
+        transcriptions[take.id] = Task {
+            defer { transcriptions[take.id] = nil }
+            do {
+                let words = try await Transcriber.words(in: take.recording, locale: RecordingLanguage.locale)
+                guard !Task.isCancelled else { return }
+                project.setTranscript(words, for: take.id)
+                rebuildCaptions()
+            } catch is CancellationError {
+            } catch {
+                failure = Failure(message: error.localizedDescription, recovery: .retry) { [weak self] in
+                    self?.transcribe(take)
+                }
+            }
+        }
+    }
+
+    /// Captions for Record mode: each character's words on its own line, cut to the audible segments.
+    private func rebuildCaptions() {
+        guard mode == .record else { return }
+        captions = CaptionAssembler.captions(
+            segments: project.segments,
+            takes: project.takes,
+            transcripts: project.transcripts,
+            characterOrder: project.characters.map(\.id)
+        )
     }
 
     // MARK: - Shared
@@ -255,6 +300,7 @@ final class EditorModel {
         player = nil
         composed = nil
         captions = []
+        typeCaptions = []
         exportedURL = nil
         speechFile = nil
         effectFile = nil
