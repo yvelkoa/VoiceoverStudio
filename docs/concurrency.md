@@ -100,7 +100,11 @@ followed saw a cancelled task and quietly returned nothing.
 
 ## Task priorities and deferral
 
-- Waveforms and the frame strip run as `Task(priority: .utility)`; they are nice-to-have decorations.
+- Waveforms and the frame strip run as `Task(priority: .utility)`; they are nice-to-have decorations. The
+  waveforms of a loaded project decode one after another in a single tracked task (`waveformTask`), so the
+  editor's deinit can cancel them and the decoder doesn't compete with the player that just started.
+- Disk writes of generated audio (`EditorModel.write`) are `@concurrent`; a few megabytes on the main actor
+  was a visible hitch on the button that triggered them.
 - `ProjectScreen` waits 300 ms before loading so the push animation gets the main thread; the manifest is
   decoded in `Task.detached(priority: .userInitiated)`.
 - `RecordingView` waits 350 ms before asking for the frame strip for the same reason.

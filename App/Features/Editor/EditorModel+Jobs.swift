@@ -11,7 +11,7 @@ extension EditorModel {
 
         run(.generating, retry: { [weak self] in self?.generate() }, operation: { [client, project] in
             let generatedSpeech = try await client.speech(text: script, voiceID: voice.voiceID)
-            project.speechFile = try Self.write(generatedSpeech.audio, to: project.fileURL("speech", extension: "mp3"))
+            project.speechFile = try await Self.write(generatedSpeech.audio, to: project.fileURL("speech", extension: "mp3"))
             project.typeCaptions = CaptionBuilder.captions(from: generatedSpeech.alignment)
             self.captions = project.typeCaptions
             try await self.compose(videoURL: videoURL)
@@ -57,7 +57,9 @@ extension EditorModel {
         project.clearExport()
     }
 
-    nonisolated static func write(_ data: Data, to url: URL) throws -> URL {
+    /// Generated MP3s are a few megabytes; writing them on the main actor was a visible hitch on the button.
+    @concurrent
+    nonisolated static func write(_ data: Data, to url: URL) async throws -> URL {
         try data.write(to: url)
         return url
     }

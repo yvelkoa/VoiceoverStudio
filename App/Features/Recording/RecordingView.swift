@@ -238,11 +238,10 @@ struct RecordingView: View {
         isSeeking = true
         let tolerance = CMTime(value: 1, timescale: 30)
         let target = CMTime(seconds: time, preferredTimescale: 600)
-        player.seek(to: target, toleranceBefore: tolerance, toleranceAfter: tolerance) { _ in
-            Task { @MainActor in
-                isSeeking = false
-                seekNext()
-            }
+        Task {
+            await player.seek(to: target, toleranceBefore: tolerance, toleranceAfter: tolerance)
+            isSeeking = false
+            seekNext()
         }
     }
 

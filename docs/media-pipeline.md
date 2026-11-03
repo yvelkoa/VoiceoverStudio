@@ -42,8 +42,9 @@ Levels are not baked into the composition. `ComposedVideo.audioMix(_ levels: Mix
 - a slider sets `player.currentItem?.audioMix` immediately (`EditorModel.applyMix`), no recompose;
 - the export gets `audioMix(levels)` with the same values.
 
-`MixLevels` defaults: original 0.25 (ducked under speech), voice 1.0, effects 0.8. When there are no clips
-at all the original is played at 1.0 so a freshly picked video sounds normal.
+`MixLevels` defaults: original 0.25 (ducked under speech), voice 1.0, effects 0.8. When the composition has
+no voice or effect tracks the preview plays the original at 1.0 so a freshly picked video sounds normal
+(`EditorModel.previewLevels`, applied both on compose and from the sliders); the export takes the mix as set.
 
 ## Preview without a video composition
 

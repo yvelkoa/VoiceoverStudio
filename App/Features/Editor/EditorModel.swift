@@ -69,6 +69,8 @@ final class EditorModel {
     /// Thumbnails for the scrubber, decoded once per video; decoding 60 fps frames on every open stuttered.
     private(set) var frameStrip: CGImage?
     private var frameStripTask: Task<Void, Never>?
+    /// Waveform decodes for the takes and effects of a loaded project; cancelled with the editor.
+    private var waveformTask: Task<Void, Never>?
     private var composeTask: Task<Void, Never>?
     private var jobTask: Task<Void, Never>?
     /// A recompose was requested while a job ran; it happens when the job is done.
@@ -95,6 +97,7 @@ final class EditorModel {
         composeTask?.cancel()
         jobTask?.cancel()
         frameStripTask?.cancel()
+        waveformTask?.cancel()
         for task in transcriptions.values { task.cancel() }
         player?.pause()
         autosaver?.stop()
@@ -108,9 +111,13 @@ final class EditorModel {
         }
         recompose()
         let sources = project.takes.map { ($0.id, $0.recording) } + project.effects.map { ($0.id, $0.audio) }
-        for (id, url) in sources {
-            Task(priority: .utility) { [project] in
-                if let waveform = try? await Waveform.load(url) { project.setWaveform(waveform, for: id) }
+        waveformTask = Task(priority: .utility) { [project] in
+            await withTaskGroup { group in
+                for (id, url) in sources {
+                    group.addTask { try? await Waveform.load(url) }
+                    // One at a time keeps the decoder from competing with the player that just started.
+                    if let waveform = await group.next(), let waveform { project.setWaveform(waveform, for: id) }
+                }
             }
         }
     }
@@ -204,7 +211,15 @@ final class EditorModel {
     /// Pushes the project's mix levels onto the playing item without rebuilding anything.
     func applyMix() {
         guard let composed else { return }
-        player?.currentItem?.audioMix = composed.audioMix(project.mix)
+        player?.currentItem?.audioMix = composed.audioMix(previewLevels(for: composed))
+    }
+
+    /// The project's mix, except that with nothing to duck under the original plays at full volume, so a
+    /// freshly picked video sounds normal. Used by the preview only; the export takes the mix as set.
+    private func previewLevels(for composed: ComposedVideo) -> MixLevels {
+        var levels = project.mix
+        if composed.trackKinds.values.allSatisfy({ $0 == .original }) { levels.original = 1 }
+        return levels
     }
 
     /// Stops whatever is running. The user asked for it, so a job's partial result is dropped on purpose.
@@ -283,9 +298,7 @@ final class EditorModel {
         // its frames can't be displayed by AVPlayerLayer at all (IQ-CA error -19230, black video).
         // AVPlayerItem is main-actor bound in iOS 26; creating it is cheap, loading happens asynchronously.
         let item = AVPlayerItem(asset: composed.composition)
-        var levels = project.mix
-        if clips.isEmpty { levels.original = 1 } // nothing to duck under yet
-        item.audioMix = composed.audioMix(levels)
+        item.audioMix = composed.audioMix(previewLevels(for: composed))
         self.composed = composed
         project.clearExport()
         savedToPhotos = false

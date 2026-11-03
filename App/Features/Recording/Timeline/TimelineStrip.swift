@@ -69,6 +69,7 @@ struct TimelineStrip: View {
             .overlay { playhead }
         }
         .frame(height: Self.frameHeight + 6 + lanesHeight)
+        .onDisappear { momentum?.cancel() }
     }
 
     /// Player clock while playing, the drag position while scrubbing, otherwise the time the owner last set.
