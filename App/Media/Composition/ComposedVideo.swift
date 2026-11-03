@@ -12,6 +12,10 @@ nonisolated struct ComposedVideo {
 
     var videoComposition: AVVideoComposition { AVVideoComposition(configuration: videoConfiguration) }
 
+    /// What the player and the export session get. AVFoundation wants an immutable asset there: a mutable one
+    /// that changed under a running reader is undefined. Track ids survive the copy, so the mix still applies.
+    var asset: AVAsset { composition.copy() as? AVComposition ?? composition }
+
     /// A fresh mix at the given levels. Cheap: no media is touched, so it can follow a slider live.
     func audioMix(_ levels: MixLevels) -> AVMutableAudioMix {
         let mix = AVMutableAudioMix()

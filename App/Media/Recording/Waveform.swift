@@ -69,6 +69,8 @@ nonisolated struct Waveform: Sendable {
             }
         }
         if filled > 0 { peaks.append(min(1, Float(current) / Float(Int16.max) * gain)) }
+        // copyNextSampleBuffer returns nil both at the end and on failure; a truncated waveform would look like silence.
+        if reader.status == .failed, let error = reader.error { throw error }
         return Waveform(peaks: peaks)
     }
 }

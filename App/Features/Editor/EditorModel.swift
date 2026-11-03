@@ -297,7 +297,7 @@ final class EditorModel {
         // captions are a SwiftUI overlay. The compositor is only needed for the export, and in the simulator
         // its frames can't be displayed by AVPlayerLayer at all (IQ-CA error -19230, black video).
         // AVPlayerItem is main-actor bound in iOS 26; creating it is cheap, loading happens asynchronously.
-        let item = AVPlayerItem(asset: composed.composition)
+        let item = AVPlayerItem(asset: composed.asset)
         item.audioMix = composed.audioMix(previewLevels(for: composed))
         self.composed = composed
         project.clearExport()

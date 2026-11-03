@@ -11,5 +11,6 @@ nonisolated enum Thumbnail {
         let image = try await generator.image(at: CMTime(seconds: 1, preferredTimescale: 600)).image
         guard let data = UIImage(cgImage: image).jpegData(compressionQuality: 0.8) else { return }
         try data.write(to: destination, options: .atomic)
+        ProjectStore.excludeFromBackup(destination)
     }
 }

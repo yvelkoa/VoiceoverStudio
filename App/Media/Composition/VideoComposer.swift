@@ -30,15 +30,16 @@ nonisolated enum VideoComposer {
         let composition = AVMutableComposition()
         let fullRange = CMTimeRange(start: .zero, duration: duration)
 
-        let videoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)!
+        guard let videoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+        else { throw Failure.noVideoTrack }
         try videoTrack.insertTimeRange(fullRange, of: sourceVideo, at: .zero)
         let (naturalSize, transform, frameRate) = try await sourceVideo.load(.naturalSize, .preferredTransform, .nominalFrameRate)
         // The preview has no video composition and relies on this to show phone footage upright.
         videoTrack.preferredTransform = transform
 
         var trackKinds: [CMPersistentTrackID: AudioKind] = [:]
-        if let sourceAudio = try await asset.loadTracks(withMediaType: .audio).first {
-            let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)!
+        if let sourceAudio = try await asset.loadTracks(withMediaType: .audio).first,
+           let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
             try track.insertTimeRange(fullRange, of: sourceAudio, at: .zero)
             trackKinds[track.trackID] = .original
         }
@@ -56,7 +57,7 @@ nonisolated enum VideoComposer {
         return ComposedVideo(composition: composition, trackKinds: trackKinds, videoConfiguration: videoConfiguration)
     }
 
-    /// Renders the edit with burned-in captions at the given mix and returns an MP4 in the temporary directory.
+    /// Renders the edit with burned-in captions at the given mix into `output` (an MP4 in the project folder).
     /// `range` keeps only that part of the timeline; caption times stay in composition time, so nothing shifts.
     static func export(
         _ composed: ComposedVideo,
@@ -82,7 +83,7 @@ nonisolated enum VideoComposer {
         )
 
         let preset = AVAssetExportPresetHighestQuality
-        guard let session = AVAssetExportSession(asset: composed.composition, presetName: preset) else {
+        guard let session = AVAssetExportSession(asset: composed.asset, presetName: preset) else {
             throw Failure.exportUnavailable
         }
         session.videoComposition = AVVideoComposition(configuration: configuration)
@@ -144,7 +145,8 @@ nonisolated enum VideoComposer {
         }
         guard available > .zero else { return nil }
 
-        let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)!
+        guard let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+        else { return nil }
         try track.insertTimeRange(CMTimeRange(start: offset, duration: available), of: source, at: start)
         return track
     }
@@ -156,7 +158,10 @@ nonisolated enum VideoComposer {
         let height = fontSize * 2.8
         let layer = CATextLayer()
         layer.string = caption.text
-        layer.font = UIFont.systemFont(ofSize: fontSize, weight: .bold)
+        // CATextLayer documents CTFont, CGFont or a name; a UIFont works only through its name and can lose the
+        // weight of the system font. The descriptor keeps it.
+        let font = UIFont.systemFont(ofSize: fontSize, weight: .bold)
+        layer.font = CTFontCreateWithFontDescriptor(font.fontDescriptor as CTFontDescriptor, fontSize, nil)
         layer.fontSize = fontSize
         layer.foregroundColor = UIColor.white.cgColor
         layer.shadowColor = UIColor.black.cgColor

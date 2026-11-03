@@ -32,6 +32,7 @@ extension EditorModel {
             // The previous export goes only once the new one exists; a failed export must not lose both.
             project.clearExport()
             project.exportedURL = exported
+            ProjectStore.excludeFromBackup(exported)
             // Straight into the library: that is where the result is wanted.
             try await PhotosSaver.save(output)
             self.savedToPhotos = true

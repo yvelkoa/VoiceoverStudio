@@ -14,7 +14,8 @@ Documents/Projects/<project-uuid>/
   export-<uuid>.mp4     the last export
 ```
 
-A project is self-contained: copying the folder is a backup; deleting it removes everything. Files are
+A project is self-contained: copying the folder is a backup; deleting it removes everything. `export-*.mp4`
+and `thumbnail.jpg` are marked excluded from iCloud backup because they can be regenerated from the rest. Files are
 referenced **by name**, never by absolute path, because iOS changes the app container path between
 launches and updates.
 

@@ -82,6 +82,14 @@ final class ProjectStore {
         try Self.decodeDocument(in: folder)
     }
 
+    /// Exports and thumbnails can be regenerated from the rest of the project; iCloud need not carry them.
+    nonisolated static func excludeFromBackup(_ url: URL) {
+        var url = url
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? url.setResourceValues(values)
+    }
+
     nonisolated private static func decodeDocument(in folder: URL) throws -> ProjectDocument {
         let data = try Data(contentsOf: folder.appending(path: ProjectDocument.fileName))
         let decoder = JSONDecoder()

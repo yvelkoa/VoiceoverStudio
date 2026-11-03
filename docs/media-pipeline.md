@@ -17,7 +17,9 @@ Project ──▶ EditorModel.compose ──▶ VideoComposer.compose(video:clip
 - `videoConfiguration: AVVideoComposition.Configuration` — a value type, used only by the export.
 
 Preview and export are built from the same composition, so what you hear is what you get, with one
-difference described under *Preview without a video composition*.
+difference described under *Preview without a video composition*. Both receive `ComposedVideo.asset`, an
+immutable copy: AVFoundation asks for an immutable asset under a running player or export, and track ids
+survive the copy so the mix parameters still match.
 
 ## Clips and tracks
 
@@ -70,7 +72,8 @@ The compositor is only used by the export, where it is needed for the caption la
 2. Creates an `AVAssetExportSession` with `AVAssetExportPresetHighestQuality`, sets the video composition,
    the audio mix and, if trimmed, `timeRange`. Caption times are composition times, so trimming shifts
    nothing.
-3. Exports MP4 into the project folder; `PhotosSaver` then adds it to the library with add-only access.
+3. Exports MP4 into the project folder, marked excluded from backup (it can be regenerated); `PhotosSaver`
+   then adds it to the library with add-only access.
 
 ### Why the video composition is built by hand
 
@@ -96,7 +99,7 @@ composition, relies on it.
 | Renderer | `CaptionOverlay` (SwiftUI `Text`) | `CATextLayer` per caption |
 | Timing | `AVPlayer.timeUpdates(every:)` → filter `start ≤ t < end` | opacity animation on the composition timeline |
 | Stacking | `VStack`, sorted by `track` | y offset = `track × line height` |
-| Style | title3 bold, white, shadow | system bold 5.5% of min(width,height), white, shadow |
+| Style | title3 bold, white, shadow | system bold 5.5% of min(width,height) as a `CTFont`, white, shadow |
 
 Both read the same `[Caption]` from `EditorModel.captions`, which is rebuilt by `CaptionAssembler` (record
 mode) or taken from the TTS alignment (type mode).
