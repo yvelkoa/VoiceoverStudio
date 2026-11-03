@@ -24,9 +24,7 @@ extension EditorModel {
 
     /// Drops the generated result, the player and the export before a new video or a regeneration.
     func resetResult() {
-        player?.pause()
-        player = nil
-        composed = nil
+        edit.reset()
         captions = []
 
         project.clearTypeResult()

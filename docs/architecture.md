@@ -55,7 +55,7 @@ App/
     ElevenLabs/  VoiceSwapper
   Features/
     Projects/    ProjectListView (root), ProjectRow, ProjectScreen (loads a project, owns its EditorModel)
-    Editor/      EditorView (+Helpers), EditorModel (+Recording, +Effects, +Jobs), WorkRunner, Sections/
+    Editor/      EditorView (+Helpers), EditorModel (+Recording, +Effects, +Jobs), WorkRunner, EditPlayer, Sections/
     Recording/   RecordingView (full-screen recorder), EffectSheet, MixPopover, Timeline/{TimelineStrip, SegmentView}
     Preview/     PreviewScreen, PreviewPlayer, CaptionOverlay, PlayerLayerView, AVPlayer+TimeUpdates
     Settings/    SettingsView

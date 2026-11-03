@@ -50,6 +50,7 @@
 		A1A21B176634440FE11A4994 /* LiveRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AC60669C34950EDC6F2C0BA /* LiveRecording.swift */; };
 		A4F8881E192E35E423F40BE2 /* RecordingLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E38E2C6770B84048F117B4C2 /* RecordingLanguage.swift */; };
 		B52DBFF4AC45C8CA7F8A248D /* CharacterPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8943B3F8B56135B3AE530B60 /* CharacterPalette.swift */; };
+		BAD741438FDF35AB6FC271F1 /* EditPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE2CF582C7F2B6B382EA65A8 /* EditPlayer.swift */; };
 		CB124D47481C79DCB973D110 /* ProjectSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BB29B482288319B612FCCDB /* ProjectSummary.swift */; };
 		CBB39C68EDB7FE290EE06C33 /* VideoComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9387065288105F72F87AD86D /* VideoComposer.swift */; };
 		CD49585C5DBCCE43A9407FEE /* FrameStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC57575937ADD3BD8CFC9C68 /* FrameStrip.swift */; };
@@ -110,6 +111,7 @@
 		D12DC5E454C542B625C35126 /* EditingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditingMode.swift; sourceTree = "<group>"; };
 		D62BAC0741CD950254F2526E /* EditorView+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorView+Helpers.swift"; sourceTree = "<group>"; };
 		DDBDF25A270778B097D7BB54 /* ProjectRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectRow.swift; sourceTree = "<group>"; };
+		DE2CF582C7F2B6B382EA65A8 /* EditPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditPlayer.swift; sourceTree = "<group>"; };
 		E38E2C6770B84048F117B4C2 /* RecordingLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingLanguage.swift; sourceTree = "<group>"; };
 		E8B4035718E0EB22AFA0D9F8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E9D97CC8679B3E8D6249E5B8 /* VoiceoverStudio.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VoiceoverStudio.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -323,6 +325,7 @@
 				33C9106D63BEF1AB64B06299 /* EditorModel+Recording.swift */,
 				7B406D41D1C09D5729D6DCB2 /* EditorView.swift */,
 				D62BAC0741CD950254F2526E /* EditorView+Helpers.swift */,
+				DE2CF582C7F2B6B382EA65A8 /* EditPlayer.swift */,
 				3C46021B28BE277B16318CB4 /* WorkRunner.swift */,
 				FEA95634946C087DC0333F11 /* Sections */,
 			);
@@ -462,6 +465,7 @@
 				B52DBFF4AC45C8CA7F8A248D /* CharacterPalette.swift in Sources */,
 				EA2F0DF2FED52724EA6A1B45 /* CharactersSection.swift in Sources */,
 				F6F86CBDDE0806B94172EC06 /* ComposedVideo.swift in Sources */,
+				BAD741438FDF35AB6FC271F1 /* EditPlayer.swift in Sources */,
 				6151A5AA65059FA89385282C /* EditingMode.swift in Sources */,
 				279EFF3529A98DA62B16BAAE /* EditorModel+Effects.swift in Sources */,
 				8265302A5CD4C0101E1FE67F /* EditorModel+Jobs.swift in Sources */,

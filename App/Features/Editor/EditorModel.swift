@@ -20,6 +20,8 @@ final class EditorModel {
     let recorder = TakeRecorder()
     /// Runs every step in its slot (compose vs. job) and holds the activity and failure the UI shows.
     private let work = WorkRunner()
+    /// Owns the AVPlayer and the composed edit; the model only decides when and from which clips to rebuild.
+    let edit = EditPlayer()
     private var autosaver: ProjectAutosaver?
 
     // MARK: - Project-backed state (stored on the project so it survives relaunch)
@@ -57,8 +59,8 @@ final class EditorModel {
     // MARK: - Output (written by the model and its extensions; views only read it)
 
     var captions: [Caption] = []
-    var player: AVPlayer?
-    var composed: ComposedVideo?
+    var player: AVPlayer? { edit.player }
+    var composed: ComposedVideo? { edit.composed }
     /// The current export has been added to the photo library.
     var savedToPhotos = false
     /// Thumbnails for the scrubber, decoded once per video; decoding 60 fps frames on every open stuttered.
@@ -111,7 +113,7 @@ final class EditorModel {
         waveformTask?.cancel()
         for task in transcriptions.values { task.cancel() }
 
-        player?.pause()
+        edit.pause()
         autosaver?.stop()
     }
 
@@ -220,45 +222,16 @@ final class EditorModel {
     /// Builds the edit and puts it on the player. Jobs call this directly at their end instead of
     /// `recompose()`, which would cancel the job that is still running them.
     func compose(videoURL: URL) async throws {
-        let clips = voiceClips() + effectClips()
-        let wasPlaying = player?.rate ?? 0 > 0
-        let resumeAt = player?.currentTime()
+        try await edit.compose(video: videoURL, clips: voiceClips() + effectClips(), mix: project.mix)
 
-        let composed = try await VideoComposer.compose(video: videoURL, clips: clips)
-        try Task.checkCancellation()
-
-        // No video composition for the preview: AVPlayer applies the track's preferredTransform itself and
-        // captions are a SwiftUI overlay. The compositor is only needed for the export, and in the simulator
-        // its frames can't be displayed by AVPlayerLayer at all (IQ-CA error -19230, black video).
-        // AVPlayerItem is main-actor bound in iOS 26; creating it is cheap, loading happens asynchronously.
-        let item = AVPlayerItem(asset: composed.asset)
-        item.audioMix = composed.audioMix(previewLevels(for: composed))
-
-        self.composed = composed
+        // What was exported no longer matches what is heard.
         project.clearExport()
         savedToPhotos = false
-
-        if let player {
-            player.replaceCurrentItem(with: item)
-            if let resumeAt { await player.seek(to: resumeAt) }
-            if wasPlaying { player.play() }
-        } else {
-            player = AVPlayer(playerItem: item)
-        }
     }
 
     /// Pushes the project's mix levels onto the playing item without rebuilding anything.
     func applyMix() {
-        guard let composed else { return }
-        player?.currentItem?.audioMix = composed.audioMix(previewLevels(for: composed))
-    }
-
-    /// The project's mix, except that with nothing to duck under the original plays at full volume, so a
-    /// freshly picked video sounds normal. Used by the preview only; the export takes the mix as set.
-    private func previewLevels(for composed: ComposedVideo) -> MixLevels {
-        var levels = project.mix
-        if composed.trackKinds.values.allSatisfy({ $0 == .original }) { levels.original = 1 }
-        return levels
+        edit.applyMix(project.mix)
     }
 
     private func voiceClips() -> [AudioClip] {
