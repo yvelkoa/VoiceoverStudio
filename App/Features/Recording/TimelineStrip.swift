@@ -8,7 +8,7 @@ import VoiceoverKit
 /// Dragging scrubs 1:1 (no inertia, like the Photos video scrubber); a tap seeks to the tapped moment.
 struct TimelineStrip: View {
     let player: AVPlayer?
-    let frames: [FrameStrip.Frame]
+    let strip: CGImage?
     let duration: Double
     let segments: [AudioSegment]
     let waveforms: [Take.ID: Waveform]
@@ -23,9 +23,9 @@ struct TimelineStrip: View {
     let onScrub: (Double) -> Void
 
     static let pointsPerSecond: CGFloat = 56
-    static let frameHeight: CGFloat = 64
-    static let laneHeight: CGFloat = 22
-    private static let laneSpacing: CGFloat = 4
+    static let frameHeight: CGFloat = 84
+    static let laneHeight: CGFloat = 28
+    private static let laneSpacing: CGFloat = 5
 
     @State private var dragStartTime: Double?
     @State private var scrubTime: Double = 0
@@ -87,29 +87,19 @@ struct TimelineStrip: View {
     }
 
     private var frameRow: some View {
-        HStack(spacing: 0) {
-            if frames.isEmpty {
+        Group {
+            if let strip {
+                Image(decorative: strip, scale: 1)
+                    .resizable()
+                    .frame(width: contentWidth, height: Self.frameHeight)
+            } else {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(.quaternary)
                     .frame(width: contentWidth, height: Self.frameHeight)
                     .overlay { ProgressView() }
-            } else {
-                ForEach(frames) { frame in
-                    Image(decorative: frame.image, scale: 1)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: frameWidth, height: Self.frameHeight)
-                        .clipped()
-                }
             }
         }
-        .frame(width: contentWidth, alignment: .leading)
         .clipShape(.rect(cornerRadius: 6))
-    }
-
-    private var frameWidth: CGFloat {
-        guard frames.count > 1 else { return contentWidth }
-        return contentWidth / CGFloat(frames.count)
     }
 
     /// One lane per character, in declaration order; segments already have overlaps resolved.

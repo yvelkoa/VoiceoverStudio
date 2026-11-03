@@ -62,16 +62,17 @@ final class TakeRecorder {
         return duration
     }
 
-    /// Samples the peak level on the waveform's grid so the live trace matches the stored one.
+    /// Samples the peak level on the waveform's grid. The array is filled up to the recorder's own clock,
+    /// so the live trace stays aligned with the playhead even when the timer runs late.
     private func startMetering() {
         metering = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(Waveform.bucket))
                 guard let self, let recorder else { return }
                 recorder.updateMeters()
-                // Peak power is in dBFS; -50 dB and below reads as silence, 0 dB is full scale.
-                let decibels = recorder.peakPower(forChannel: 0)
-                liveLevels.append(max(0, min(1, (decibels + 50) / 50)))
+                let level = Waveform.level(fromDecibels: recorder.peakPower(forChannel: 0))
+                let expected = Int(recorder.currentTime / Waveform.bucket)
+                while liveLevels.count < expected { liveLevels.append(level) }
             }
         }
     }

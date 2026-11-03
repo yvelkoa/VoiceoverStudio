@@ -142,24 +142,18 @@ struct EditorView: View {
     @ViewBuilder
     private var resultSection: some View {
         if let player = model.player {
-            Section("Preview") {
-                PreviewPlayer(player: player, captions: model.captions)
-                    .aspectRatio(9 / 16, contentMode: .fit)
-                    .frame(maxHeight: 460)
-                    .listRowInsets(EdgeInsets())
-                    .overlay(alignment: .topLeading) {
-                        if model.isRecording {
-                            Label("REC", systemImage: "record.circle.fill")
-                                .font(.caption.bold())
-                                .foregroundStyle(.white)
-                                .padding(6)
-                                .background(.red, in: .capsule)
-                                .padding(10)
-                        }
-                    }
+            Section(model.mode == .type ? "Preview" : "Export") {
+                // Record mode has the full-screen recorder for playback; a second player here only confused.
+                if model.mode == .type {
+                    PreviewPlayer(player: player, captions: model.captions)
+                        .aspectRatio(9 / 16, contentMode: .fit)
+                        .frame(maxHeight: 460)
+                        .listRowInsets(EdgeInsets())
+                }
 
                 if !model.hasResult {
-                    EmptyView()
+                    Text(model.mode == .type ? "Generate a voiceover to export." : "Record a take to export.")
+                        .foregroundStyle(.secondary)
                 } else if let url = model.exportedURL {
                     ShareLink(item: url) {
                         Label("Share or save video", systemImage: "square.and.arrow.up")

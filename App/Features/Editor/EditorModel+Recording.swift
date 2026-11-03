@@ -40,7 +40,7 @@ extension EditorModel {
 
     func stopRecording() {
         guard isRecording, let player, let character = project.activeCharacter else { return }
-        player.pause()
+        player.rate = 0
         player.isMuted = false
         let duration = recorder.stop()
         guard let url = recorder.lastRecordingURL, duration >= TakeResolver.minimumDuration else { return }

@@ -8,19 +8,22 @@ struct RecordingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
 
-    @State private var frames: [FrameStrip.Frame] = []
+    @State private var strip: CGImage?
+    /// Seeks are coalesced: at most one in flight, the latest requested time waits for it.
+    @State private var isSeeking = false
+    @State private var pendingSeek: Double?
     @State private var currentTime: Double = 0
     @State private var isScrubbing = false
     @State private var isPlaying = false
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
+            VStack(spacing: 10) {
                 video
                 characterChips
                 TimelineStrip(
                     player: model.player,
-                    frames: frames,
+                    strip: strip,
                     duration: model.videoDuration,
                     segments: model.project.segments,
                     waveforms: model.project.waveforms,
@@ -46,8 +49,13 @@ struct RecordingView: View {
             }
         }
         .interactiveDismissDisabled(model.isRecording)
-        .task(id: model.videoURL) { await loadFrames() }
+        .task(id: model.videoURL) { await loadStrip() }
         .task(id: model.player.map(ObjectIdentifier.init)) { await followPlayer() }
+        .onChange(of: model.isRecording) { _, recording in
+            // Recording starts and stops the player itself; keep the transport in step.
+            isPlaying = recording || (model.player?.rate ?? 0) > 0
+            if !recording, let player = model.player { currentTime = player.currentTime().seconds }
+        }
         .onDisappear { model.player?.pause() }
     }
 
@@ -101,13 +109,13 @@ struct RecordingView: View {
     }
 
     private var transport: some View {
-        HStack(spacing: 24) {
+        HStack(spacing: 28) {
             Button {
                 togglePlayback()
             } label: {
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                    .font(.title2)
-                    .frame(width: 44, height: 44)
+                    .font(.title3)
+                    .frame(width: 36, height: 36)
             }
             .disabled(model.isRecording || model.player == nil)
 
@@ -115,11 +123,11 @@ struct RecordingView: View {
                 if model.isRecording { model.stopRecording() } else { model.startRecording() }
             } label: {
                 ZStack {
-                    Circle().stroke(.red, lineWidth: 4).frame(width: 72, height: 72)
+                    Circle().stroke(.red, lineWidth: 3).frame(width: 52, height: 52)
                     if model.isRecording {
-                        RoundedRectangle(cornerRadius: 6).fill(.red).frame(width: 30, height: 30)
+                        RoundedRectangle(cornerRadius: 4).fill(.red).frame(width: 20, height: 20)
                     } else {
-                        Circle().fill(.red).frame(width: 60, height: 60)
+                        Circle().fill(.red).frame(width: 42, height: 42)
                     }
                 }
             }
@@ -134,26 +142,25 @@ struct RecordingView: View {
                 }
             } label: {
                 Image(systemName: "arrow.uturn.backward")
-                    .font(.title2)
-                    .frame(width: 44, height: 44)
+                    .font(.title3)
+                    .frame(width: 36, height: 36)
             }
             .disabled(model.isRecording || model.project.takes.isEmpty)
             .accessibilityLabel("Delete last take")
         }
-        .padding(.top, 4)
     }
 
     // MARK: - Behaviour
 
-    private func loadFrames() async {
+    private func loadStrip() async {
         guard let url = model.videoURL, model.videoDuration > 0 else { return }
-        frames = (try? await FrameStrip.frames(
+        strip = try? await FrameStrip.image(
             for: url,
             duration: model.videoDuration,
             interval: 1,
-            height: TimelineStrip.frameHeight,
+            cellSize: CGSize(width: TimelineStrip.pointsPerSecond, height: TimelineStrip.frameHeight),
             scale: displayScale
-        )) ?? []
+        )
     }
 
     private func followPlayer() async {
@@ -165,11 +172,29 @@ struct RecordingView: View {
         }
     }
 
+    /// Drag events arrive faster than a 60 fps video can seek; only the newest pending time is honoured.
     private func scrub(to time: Double) {
         guard let player = model.player else { return }
         player.pause()
+        isPlaying = false
         currentTime = time
-        player.seek(to: CMTime(seconds: time, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        pendingSeek = time
+        guard !isSeeking else { return }
+        seekNext()
+    }
+
+    private func seekNext() {
+        guard let player = model.player, let time = pendingSeek else { return }
+        pendingSeek = nil
+        isSeeking = true
+        let tolerance = CMTime(value: 1, timescale: 30)
+        let target = CMTime(seconds: time, preferredTimescale: 600)
+        player.seek(to: target, toleranceBefore: tolerance, toleranceAfter: tolerance) { _ in
+            Task { @MainActor in
+                isSeeking = false
+                seekNext()
+            }
+        }
     }
 
     private func togglePlayback() {

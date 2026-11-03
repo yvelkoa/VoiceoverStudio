@@ -1,8 +1,16 @@
 import AVFoundation
 
-/// Peak levels of an audio file, one per `bucket` seconds, normalised to 0...1.
+/// Peak levels of an audio file, one per `bucket` seconds, as linear amplitude 0...1 with a fixed gain.
+/// The live meter and the stored waveform use the same scale, so a take looks the same during and after recording.
 nonisolated struct Waveform: Sendable {
     static let bucket = 0.02
+    /// Speech peaks rarely reach full scale; a little gain makes ordinary takes fill the lane.
+    static let gain: Float = 1.6
+
+    /// Linear amplitude from a dBFS meter reading, on the same scale as `load`.
+    static func level(fromDecibels decibels: Float) -> Float {
+        min(1, powf(10, decibels / 20) * gain)
+    }
 
     let peaks: [Float]
 
@@ -53,18 +61,14 @@ nonisolated struct Waveform: Sendable {
                     current = max(current, Swift.abs(max(samples[index], -Int16.max)))
                     filled += 1
                     if filled == samplesPerBucket {
-                        peaks.append(Float(current) / Float(Int16.max))
+                        peaks.append(min(1, Float(current) / Float(Int16.max) * gain))
                         current = 0
                         filled = 0
                     }
                 }
             }
         }
-        if filled > 0 { peaks.append(Float(current) / Float(Int16.max)) }
-
-        // Normalise so a quiet recording still shows shape; silence stays flat.
-        let top = peaks.max() ?? 0
-        guard top > 0.01 else { return Waveform(peaks: peaks) }
-        return Waveform(peaks: peaks.map { min($0 / top, 1) })
+        if filled > 0 { peaks.append(min(1, Float(current) / Float(Int16.max) * gain)) }
+        return Waveform(peaks: peaks)
     }
 }
