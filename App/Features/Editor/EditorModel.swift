@@ -3,8 +3,9 @@ import Foundation
 import Observation
 import VoiceoverKit
 
-/// Orchestrates one open project: the player, the composed edit, and every step that changes them.
-/// `Project` holds the state; this type decides *when* to recompose, transcribe, swap or export.
+/// Coordinates one open project. `Project` holds the state; four owned objects do the work (`WorkRunner`
+/// runs steps, `EditPlayer` plays the edit, `RecordingSession` records a take, `TranscriptionQueue` recognises
+/// it); this type decides *what happens when*: which clips make the edit, and when to rebuild, swap or export.
 /// Record mode lives in `+Recording`, the effects lane in `+Effects`, the credit-spending steps in `+Jobs`.
 @Observable
 final class EditorModel {
@@ -23,6 +24,8 @@ final class EditorModel {
     private let work = WorkRunner()
     /// Owns the AVPlayer and the composed edit; the model only decides when and from which clips to rebuild.
     let edit = EditPlayer()
+    /// One recogniser task per take; words come back through `onWords`.
+    let transcriptions = TranscriptionQueue()
     private var autosaver: ProjectAutosaver?
 
     // MARK: - Project-backed state (stored on the project so it survives relaunch)
@@ -84,7 +87,6 @@ final class EditorModel {
     private var frameStripTask: Task<Void, Never>?
     /// Waveform decodes for the takes and effects of a loaded project; cancelled with the editor.
     private var waveformTask: Task<Void, Never>?
-    var transcriptions: [Take.ID: Task<Void, Never>] = [:]
 
     // MARK: - Lifetime
 
@@ -95,6 +97,16 @@ final class EditorModel {
 
         // A call or an unplugged headset ends the take the same way Stop does, keeping what was recorded.
         recording.onInterruption = { [weak self] in self?.stopRecording() }
+        transcriptions.onWords = { [weak self] takeID, words in
+            guard let self else { return }
+            project.setTranscript(words, for: takeID)
+            rebuildCaptions()
+        }
+        transcriptions.onFailure = { [weak self] take, error in
+            self?.failure = Failure(message: error.localizedDescription, recovery: .retry) { [weak self] in
+                self?.transcriptions.transcribe(take)
+            }
+        }
 
         restore()
     }
@@ -105,7 +117,7 @@ final class EditorModel {
         work.cancelAll()
         frameStripTask?.cancel()
         waveformTask?.cancel()
-        for task in transcriptions.values { task.cancel() }
+        transcriptions.cancelAll()
 
         edit.pause()
         autosaver?.stop()

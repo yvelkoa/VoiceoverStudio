@@ -28,7 +28,8 @@ right default for small helpers and the wrong one for anything that decodes medi
 
 ### Main actor: state and orchestration
 
-`Project`, `EditorModel`, `TakeRecorder`, `ProjectStore`, `ProjectAutosaver`, every view. They mutate observable
+`Project`, `EditorModel` and the objects it owns (`WorkRunner`, `EditPlayer`, `RecordingSession`,
+`TranscriptionQueue`), `TakeRecorder`, `ProjectStore`, `ProjectAutosaver`, every view. They mutate observable
 state and talk to UIKit and AVKit objects that are main-actor bound. Nothing to annotate.
 
 ### `nonisolated` types

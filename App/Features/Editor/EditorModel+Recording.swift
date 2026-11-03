@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 import VoiceoverKit
 
-// Record mode: punch-in takes, who speaks them, transcription for captions, the voice swap and the trim.
+// Record mode: punch-in takes, who speaks them, captions from their transcripts, the voice swap and the trim.
 extension EditorModel {
 
     // MARK: - Takes
@@ -32,7 +32,7 @@ extension EditorModel {
         )
         rebuildCaptions()
         recompose()
-        transcribe(take)
+        transcriptions.transcribe(take)
         Task { [project] in
             if let waveform = try? await Waveform.load(take.recording) { project.setWaveform(waveform, for: take.id) }
         }
@@ -40,8 +40,7 @@ extension EditorModel {
 
     func delete(_ take: Take) {
         guard !isBusy else { return }
-        transcriptions[take.id]?.cancel()
-        transcriptions[take.id] = nil
+        transcriptions.cancel(take.id)
 
         project.remove(take)
         rebuildCaptions()
@@ -49,27 +48,6 @@ extension EditorModel {
     }
 
     // MARK: - Captions
-
-    /// Recognises the words in a take so captions can follow it. Runs alongside other work.
-    func transcribe(_ take: Take) {
-        transcriptions[take.id]?.cancel()
-        transcriptions[take.id] = Task {
-            defer { transcriptions[take.id] = nil }
-
-            do {
-                let words = try await Transcriber.words(in: take.recording, locale: RecordingLanguage.locale)
-                guard !Task.isCancelled else { return }
-                project.setTranscript(words, for: take.id)
-                rebuildCaptions()
-            } catch is CancellationError {
-                // The take was deleted or the editor closed.
-            } catch {
-                failure = Failure(message: error.localizedDescription, recovery: .retry) { [weak self] in
-                    self?.transcribe(take)
-                }
-            }
-        }
-    }
 
     /// Captions for Record mode: each character's words on its own line, cut to the audible segments.
     func rebuildCaptions() {
@@ -92,10 +70,7 @@ extension EditorModel {
 
     func removeCharacter(_ id: Character.ID) {
         guard !isBusy, project.characters.count > 1 else { return }
-        for take in project.takes where take.characterID == id {
-            transcriptions[take.id]?.cancel()
-            transcriptions[take.id] = nil
-        }
+        transcriptions.cancel(project.takes.filter { $0.characterID == id }.map(\.id))
 
         project.removeCharacter(id)
         rebuildCaptions()
