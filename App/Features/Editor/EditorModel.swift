@@ -17,7 +17,8 @@ final class EditorModel {
 
     let project: Project
     let client: ElevenLabsClient
-    let recorder = TakeRecorder()
+    /// One take at a time, from Record to Stop, including the player's part in it.
+    let recording = RecordingSession()
     /// Runs every step in its slot (compose vs. job) and holds the activity and failure the UI shows.
     private let work = WorkRunner()
     /// Owns the AVPlayer and the composed edit; the model only decides when and from which clips to rebuild.
@@ -85,13 +86,6 @@ final class EditorModel {
     private var waveformTask: Task<Void, Never>?
     var transcriptions: [Take.ID: Task<Void, Never>] = [:]
 
-    // MARK: - Recording state
-
-    var recordingStart: Double = 0
-    /// Record was pressed and the microphone permission is being asked; a second press must not start a
-    /// second recorder.
-    var isStartingRecording = false
-
     // MARK: - Lifetime
 
     init(project: Project, client: ElevenLabsClient, store: ProjectStore?) {
@@ -100,7 +94,7 @@ final class EditorModel {
         if let store { autosaver = ProjectAutosaver(project: project, store: store) }
 
         // A call or an unplugged headset ends the take the same way Stop does, keeping what was recorded.
-        recorder.onInterruption = { [weak self] in self?.stopRecording() }
+        recording.onInterruption = { [weak self] in self?.stopRecording() }
 
         restore()
     }
@@ -139,14 +133,14 @@ final class EditorModel {
 
     // MARK: - What the UI may do right now
 
-    var isRecording: Bool { recorder.isRecording }
+    var isRecording: Bool { recording.isRecording }
 
     var canGenerate: Bool {
         videoURL != nil && voice != nil && !trimmedScript.isEmpty && activity == nil
     }
 
     var canRecord: Bool {
-        player != nil && project.activeCharacter != nil && activity == nil && !isStartingRecording && !isRecording
+        player != nil && project.activeCharacter != nil && activity == nil && !recording.isStarting && !isRecording
     }
 
     var canSwapVoices: Bool {

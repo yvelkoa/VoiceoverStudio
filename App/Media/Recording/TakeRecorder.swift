@@ -8,11 +8,10 @@ import Observation
 @Observable
 final class TakeRecorder {
     enum Failure: LocalizedError {
-        case microphoneDenied, alreadyRecording
+        case alreadyRecording
 
         var errorDescription: String? {
             switch self {
-            case .microphoneDenied: "Microphone access is off. Allow it in Settings to record takes."
             case .alreadyRecording: "A take is already being recorded."
             }
         }
