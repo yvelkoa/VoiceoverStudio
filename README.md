@@ -1,142 +1,173 @@
 # Voiceover Studio
 
-Add an AI voiceover, word-synced captions and a generated sound effect to any short video, powered by the
-[ElevenLabs API](https://elevenlabs.io/docs).
+Record a voiceover over any short video in your own voice, then swap it for an ElevenLabs voice. Timing,
+pauses and delivery stay yours; captions follow the words. Several characters can talk, even over each
+other. Powered by the [ElevenLabs API](https://elevenlabs.io/docs) and on-device speech recognition.
 
-<!-- TODO: demo GIF (pick clip → write script → choose voice → export) -->
+<!-- TODO: demo GIF (pick clip → record takes → swap voices → export) -->
 
-**Flow:** pick a video from Photos → write a script → choose a voice → (optional) describe a sound effect →
-preview with live captions → export an MP4 with captions burned in.
+**Record mode:** pick a video → add characters and give each a voice → scrub to a moment, press Record,
+speak, stop; repeat per line and per character → Swap voices → preview with live captions → export an
+MP4 with captions burned in.
+
+**Type mode:** write a script, pick a voice, optionally describe a sound effect, generate, export.
 
 ## Architecture
 
-Two layers with a one-way dependency. The app owns UI, state and AVFoundation; `VoiceoverKit` owns the
-network, parsing and caption maths, and has no UI imports, so it is tested with plain `swift test`.
+Two layers with a one-way dependency. The app owns UI, state, recording and AVFoundation; `VoiceoverKit`
+owns the network, parsing and the pure timeline maths (overlap resolution, caption assembly), has no UI
+imports and is tested with plain `swift test`.
 
 ```mermaid
 flowchart LR
     subgraph App["App (SwiftUI, iOS 26, main actor by default)"]
         direction TB
-        AppModel["AppModel<br/>API key presence, key verification"]
-        EditorModel["EditorModel<br/>inputs, activity state, retry"]
-        EditorView["EditorView<br/>Form: video / script / effect / result"]
-        VoicePicker["VoicePickerView<br/>voice list + preview playback"]
-        Settings["SettingsView<br/>enter / remove key"]
-        Preview["PreviewPlayer<br/>AVPlayer + SwiftUI caption overlay"]
-        Composer["VideoComposer (nonisolated)<br/>AVMutableComposition, audio mix,<br/>CATextLayer export"]
+        EditorView["EditorView<br/>Record / Type switch"]
+        EditorModel["EditorModel<br/>orchestration, activity, retry"]
+        Project["Project<br/>video, characters, takes,<br/>transcripts, converted audio"]
+        Recorder["TakeRecorder<br/>AVAudioRecorder → .m4a"]
+        Transcriber["Transcriber<br/>SpeechTranscriber (on device)<br/>or SFSpeechRecognizer"]
+        Swapper["VoiceSwapper<br/>≤3 requests in flight"]
+        Composer["VideoComposer (nonisolated)<br/>clips → tracks, CATextLayer export"]
+        Preview["PreviewPlayer<br/>caption overlay per track"]
     end
 
     subgraph Kit["VoiceoverKit (Swift package, no UI)"]
         direction TB
-        Client["ElevenLabsClient (actor)<br/>voices cache"]
-        Transport["HTTPTransport<br/>URLSession in prod,<br/>stub in tests"]
-        Captions["CaptionBuilder<br/>characters → words → captions"]
-        Errors["ElevenLabsError<br/>typed + Recovery"]
-        Keychain["KeychainStore"]
-        Models["Voice, Speech,<br/>CharacterAlignment, Caption"]
+        Client["ElevenLabsClient (actor)<br/>voices · TTS · voice changer · SFX"]
+        Resolver["TakeResolver<br/>newest take wins per character"]
+        Assembler["CaptionAssembler<br/>words → timeline → tracks"]
+        Captions["CaptionBuilder"]
+        Errors["ElevenLabsError + Recovery"]
+        Models["Character, Take, AudioSegment,<br/>Voice, VoiceSettings, Caption"]
     end
 
     EL[("ElevenLabs API")]
+    Apple[("Apple speech models<br/>on device / server")]
 
     EditorView --> EditorModel
-    EditorView --> VoicePicker
-    EditorView --> Settings
     EditorView --> Preview
-    Settings --> AppModel
-    AppModel --> Keychain
-    AppModel --> Client
-    EditorModel --> Client
-    EditorModel --> Captions
+    EditorModel --> Project
+    EditorModel --> Recorder
+    EditorModel --> Transcriber --> Apple
+    EditorModel --> Swapper --> Client --> EL
     EditorModel --> Composer
-    Client --> Transport --> EL
+    Project --> Resolver
+    EditorModel --> Assembler --> Captions
     Client --> Errors
 ```
 
-### Generate flow
-
-Voice and sound effect are requested in parallel. Generated audio is written to disk once, so moving the
-effect on the timeline only re-composes and never calls the API again.
+### Record flow
 
 ```mermaid
 sequenceDiagram
     actor U as User
-    participant V as EditorView
     participant M as EditorModel
+    participant R as TakeRecorder
+    participant P as Project
+    participant T as Transcriber
+    participant S as VoiceSwapper
     participant C as ElevenLabsClient
-    participant B as CaptionBuilder
     participant X as VideoComposer
-    participant P as PreviewPlayer
 
-    U->>V: Generate voiceover
-    V->>M: generate()
-    activate M
-    Note over M: activity = .generating
-    par in parallel (async let)
-        M->>C: speech(text, voiceID)
-        C-->>M: Speech(audio, alignment)
-    and
-        M->>C: soundEffect(prompt)
-        C-->>M: Data?
+    U->>M: Record (playhead at 12.0 s)
+    M->>R: start()
+    Note over M: video plays muted
+    U->>M: Stop
+    M->>R: stop() → 4.2 s
+    M->>P: addTake(character, start 12.0, 4.2 s)
+    M->>X: compose(resolved segments)
+    Note over M: raw voice audible in preview
+    M-)T: words(in: take)
+    T--)M: [TimedWord]
+    M->>P: setTranscript
+    M->>M: captions = CaptionAssembler(...)
+
+    U->>M: Swap voices · 17 s
+    M->>S: convert(jobs)
+    par up to 3 at once
+        S->>C: changeVoice(audio, voiceID, settings)
+        C-->>S: MP3
     end
-    M->>M: write speech.mp3 / effect.mp3 to tmp
-    M->>B: captions(from: alignment)
-    B-->>M: [Caption]
-    M->>X: compose(video, voice, effect, start)
-    Note over X: off main actor (@concurrent)
-    X-->>M: ComposedVideo (sending)
-    M->>P: AVPlayerItem + captions
-    deactivate M
+    S-->>M: outcome(takeID, url, drift)
+    M->>P: setConvertedAudio
+    M->>X: compose(converted segments)
 
-    U->>V: move effect
-    V->>M: applyEffectStart()
-    M->>X: compose(...)
-    Note over M,X: no network call
-    X-->>M: ComposedVideo
-
-    U->>V: Export
-    V->>M: export()
+    U->>M: Export
     M->>X: export(composed, captions)
-    Note over X: AVAssetExportSession +<br/>CoreAnimationTool burns captions
     X-->>M: MP4 URL
 ```
+
+### Takes, characters and overlap
+
+```mermaid
+gantt
+    dateFormat ss
+    axisFormat %S s
+    title Two characters, one redo. Narrator's second take replaces the overlap; the dog is untouched.
+    section Narrator
+    take 1 (seq 1)        :a1, 00, 10s
+    take 3 (seq 3, redo)  :crit, a3, 06, 6s
+    section Dog
+    take 2 (seq 2)        :b1, 04, 3s
+    section Heard
+    Narrator take 1 [0–6) :done, h1, 00, 6s
+    Narrator take 3 [6–12) :done, h3, 06, 6s
+    Dog take 2 [4–7)      :done, h2, 04, 3s
+```
+
+`TakeResolver` applies "newest take wins" only within a character. Each surviving slice becomes an
+`AudioClip` on its own track, so characters can overlap like a real dialogue. Converted audio keeps the
+take's timing, so the same offsets apply before and after the swap.
 
 ### Editor state
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle
-    Idle --> Generating: generate()
-    Generating --> Ready: composed
-    Generating --> Idle: cancel / error (retry = generate)
-    Ready --> Composing: applyEffectStart()
-    Composing --> Ready: composed
+    [*] --> NoVideo
+    NoVideo --> Ready: setVideo() → compose (raw video)
+    Ready --> Recording: startRecording()
+    Recording --> Ready: stopRecording() → take added, compose, transcribe
+    Ready --> Swapping: swapVoices()
+    Swapping --> Ready: all takes converted, compose
+    Swapping --> Ready: error (retry = swap remaining takes)
     Ready --> Exporting: export()
-    Exporting --> Exported: MP4 written
-    Exporting --> Ready: error (retry = export only)
-    Exported --> Composing: applyEffectStart()
-    Ready --> Generating: generate() again
-    Exported --> Generating: generate() again
-    Ready --> Idle: setVideo()
-    Exported --> Idle: setVideo()
+    Exporting --> Ready: MP4 written / error (retry = export only)
+    Ready --> Ready: delete take / move effect / change voice → compose
 ```
 
-`activity` is `nil` in Idle / Ready / Exported; a `Failure` carries the exact closure to retry, so an
-export error never re-spends generation credits.
+Transcription runs beside the state machine, one task per take; a failed transcription offers a retry
+without touching the audio. A voice change on a character invalidates only that character's conversions.
 
-### Captions: two renderers, one source
+### Captions: one source, two renderers
 
 ```mermaid
 flowchart LR
-    A["with-timestamps response<br/>characters[], start[], end[]"] --> W["CaptionBuilder.words<br/>split on whitespace"]
-    W --> L["CaptionBuilder.captions<br/>break at . ! ?<br/>or 32 chars or 3 s"]
-    L --> CAP["[Caption]"]
-    CAP --> O["Preview: SwiftUI Text overlay<br/>driven by periodic time observer"]
-    CAP --> E["Export: one CATextLayer per caption<br/>opacity keyframes at start / end"]
+    A["Take recording"] --> T["Transcriber<br/>words + time ranges"]
+    T --> S["CaptionAssembler<br/>shift by segment start,<br/>drop words cut by a redo,<br/>track = character index"]
+    TTS["TTS with-timestamps<br/>characters[], start[], end[]"] --> W["CaptionBuilder.words"]
+    W --> L
+    S --> L["CaptionBuilder.captions<br/>break at . ! ? / 32 chars / 3 s"]
+    L --> CAP["[Caption] with track"]
+    CAP --> O["Preview: SwiftUI overlay,<br/>one line per visible track"]
+    CAP --> E["Export: CATextLayer per caption,<br/>y offset by track"]
 ```
 
 ## Engineering notes
 
-- **Captions come from character timestamps, not guesswork.** The `with-timestamps` endpoint returns start and end
+- **Your timing, their voice.** Speech-to-speech keeps the pauses, emphasis and pace of the recording, so
+  there is no script-to-timeline problem to solve: you just talk over the video. The app checks the
+  converted length against the take and flags drift above 150 ms, because captions are timed from the
+  recording.
+- **Speech recognition picks the engine per language.** `SpeechTranscriber` (iOS 26) runs on device
+  but covers English, German, French, Spanish, Italian, Portuguese, Japanese, Korean and Chinese only.
+  Other languages, Russian included, go through `SFSpeechRecognizer`, which may use Apple's servers.
+  One `Transcriber` hides the choice.
+- **Credits are spent on purpose.** Nothing calls ElevenLabs until you press Swap voices, the button
+  says how many seconds it will bill, and only takes without a current conversion are sent. Changing a
+  character's voice invalidates just that character.
+
+- **TTS captions come from character timestamps, not guesswork.** The `with-timestamps` endpoint returns start and end
   times for every character. `CaptionBuilder` groups them into words, then into short lines. Lines break at sentence
   punctuation, at 32 characters or at 3 seconds, so captions are always readable and in sync with the voice.
 - **One edit, two renderers.** `AVVideoCompositionCoreAnimationTool` only works for offline export. The preview
@@ -158,13 +189,15 @@ flowchart LR
 1. Get an API key at elevenlabs.io → Developers → API Keys. The free tier is enough. Text to Speech, Voices and
    Sound Effects permissions are all you need.
 2. `brew install xcodegen && xcodegen generate && open VoiceoverStudio.xcodeproj`
-3. Run on an iOS 26+ simulator or device, open Settings and paste the key.
+3. Run on an iOS 26+ simulator or device, open Settings and paste the key. Pick the recording language
+   there too if it differs from the device language.
 
-Tests: `swift test --package-path Packages/VoiceoverKit`
+Tests: `swift test --package-path Packages/VoiceoverKit`. Lint: `swiftlint lint --strict`.
 
 ## Roadmap
 
-- Streaming TTS over WebSocket, so playback starts before generation finishes
-- Multiple voices (dialogue)
+- Timeline strip: frame thumbnails, one lane per character, drag to move a take
+- Trim silence at the edges of a take
+- Remove filler words via on-device Foundation Models, cutting the audio by word timing
+- Hear other characters' takes while recording a reply
 - Auto-ducking of the sound effect under speech
-- Waveform timeline with drag to position the effect
