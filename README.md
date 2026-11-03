@@ -22,6 +22,8 @@ imports and is tested with plain `swift test`.
 flowchart LR
     subgraph App["App (SwiftUI, iOS 26, main actor by default)"]
         direction TB
+        ProjectList["ProjectListView<br/>projects on this device"]
+        Store["ProjectStore + Autosaver<br/>Documents/Projects/&lt;id&gt;/project.json"]
         EditorView["EditorView<br/>Record / Type switch"]
         EditorModel["EditorModel<br/>orchestration, activity, retry"]
         Project["Project<br/>video, characters, takes,<br/>transcripts, converted audio"]
@@ -45,6 +47,9 @@ flowchart LR
     EL[("ElevenLabs API")]
     Apple[("Apple speech models<br/>on device / server")]
 
+    ProjectList --> Store
+    ProjectList --> EditorView
+    Store --> Project
     EditorView --> EditorModel
     EditorView --> Preview
     EditorModel --> Project
@@ -163,6 +168,10 @@ flowchart LR
   but covers English, German, French, Spanish, Italian, Portuguese, Japanese, Korean and Chinese only.
   Other languages, Russian included, go through `SFSpeechRecognizer`, which may use Apple's servers.
   One `Transcriber` hides the choice.
+- **A project is a folder.** `Documents/Projects/<id>/` holds `project.json` and every media file: the
+  video, takes, converted audio, effects, speech and the export. Files are referenced by name because iOS
+  moves the app container between launches. An autosaver watches the project through Observation and
+  writes the manifest 600 ms after any change; nothing to press.
 - **Credits are spent on purpose.** Nothing calls ElevenLabs until you press Swap voices, the button
   says how many seconds it will bill, and only takes without a current conversion are sent. Changing a
   character's voice invalidates just that character.
