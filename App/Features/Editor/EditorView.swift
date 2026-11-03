@@ -10,6 +10,7 @@ struct EditorView: View {
     @State var isLoadingVideo = false
     @State var showsSettings = false
     @State var showsRecorder = false
+    @State var showsPreview = false
 
     var body: some View {
         NavigationStack {
@@ -41,6 +42,11 @@ struct EditorView: View {
             .safeAreaInset(edge: .bottom) { primaryButton }
             .sheet(isPresented: $showsSettings) { SettingsView() }
             .fullScreenCover(isPresented: $showsRecorder) { RecordingView(model: model) }
+            .fullScreenCover(isPresented: $showsPreview) {
+                if let player = model.player {
+                    PreviewScreen(player: player, captions: model.captions)
+                }
+            }
             .alert(item: $model.failure) { failure in
                 failureAlert(failure)
             }
@@ -138,6 +144,11 @@ struct EditorView: View {
                 if !model.hasResult {
                     Text(model.mode == .type ? "Generate a voiceover to export." : "Record a take to export.")
                         .foregroundStyle(.secondary)
+                } else if model.mode == .record {
+                    Button("Preview", systemImage: "play.rectangle") { showsPreview = true }
+                }
+                if !model.hasResult {
+                    EmptyView()
                 } else if let url = model.exportedURL {
                     ShareLink(item: url) {
                         Label("Share or save video", systemImage: "square.and.arrow.up")

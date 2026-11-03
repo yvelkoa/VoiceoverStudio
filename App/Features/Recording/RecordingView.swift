@@ -17,6 +17,7 @@ struct RecordingView: View {
     @State private var isPlaying = false
     @State private var showsEffectSheet = false
     @State private var showsMix = false
+    @State private var showsPreview = false
 
     var body: some View {
         NavigationStack {
@@ -55,6 +56,11 @@ struct RecordingView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }.disabled(model.isRecording)
+                }
+            }
+            .fullScreenCover(isPresented: $showsPreview) {
+                if let player = model.player {
+                    PreviewScreen(player: player, captions: model.captions)
                 }
             }
             .sheet(isPresented: $showsEffectSheet) {
@@ -123,16 +129,29 @@ struct RecordingView: View {
         }
     }
 
+    /// Record sits dead centre; play and undo on the left, effects and preview on the right.
     private var transport: some View {
-        HStack(spacing: 28) {
-            Button {
-                togglePlayback()
-            } label: {
-                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                    .font(.title3)
-                    .frame(width: 36, height: 36)
+        ZStack {
+            HStack {
+                transportButton("play", systemImage: isPlaying ? "pause.fill" : "play.fill") { togglePlayback() }
+                    .disabled(model.isRecording || model.player == nil)
+                transportButton("Delete last take", systemImage: "arrow.uturn.backward") {
+                    if let last = model.project.takes.max(by: { $0.sequence < $1.sequence }) {
+                        model.delete(last)
+                        scrub(to: last.start)
+                    }
+                }
+                .disabled(model.isRecording || model.project.takes.isEmpty)
+                Spacer()
+                transportButton(
+                    "Add sound effect at playhead",
+                    systemImage: model.activity == .generatingEffect ? "hourglass" : "sparkles"
+                ) { showsEffectSheet = true }
+                    .disabled(model.isRecording || model.activity != nil || model.player == nil)
+                transportButton("Preview the edit", systemImage: "play.rectangle") { showsPreview = true }
+                    .disabled(model.isRecording || model.player == nil)
             }
-            .disabled(model.isRecording || model.player == nil)
+            .padding(.horizontal, 8)
 
             Button {
                 if model.isRecording { model.stopRecording() } else { model.startRecording() }
@@ -149,30 +168,16 @@ struct RecordingView: View {
             .buttonStyle(.plain)
             .disabled(!model.isRecording && !model.canRecord)
             .accessibilityLabel(model.isRecording ? "Stop recording" : "Record")
-
-            Button {
-                if let last = model.project.takes.max(by: { $0.sequence < $1.sequence }) {
-                    model.delete(last)
-                    scrub(to: last.start)
-                }
-            } label: {
-                Image(systemName: "arrow.uturn.backward")
-                    .font(.title3)
-                    .frame(width: 36, height: 36)
-            }
-            .disabled(model.isRecording || model.project.takes.isEmpty)
-            .accessibilityLabel("Delete last take")
-
-            Button {
-                showsEffectSheet = true
-            } label: {
-                Image(systemName: model.activity == .generatingEffect ? "hourglass" : "sparkles")
-                    .font(.title3)
-                    .frame(width: 36, height: 36)
-            }
-            .disabled(model.isRecording || model.activity != nil || model.player == nil)
-            .accessibilityLabel("Add sound effect at playhead")
         }
+    }
+
+    private func transportButton(_ label: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .frame(width: 44, height: 40)
+        }
+        .accessibilityLabel(label)
     }
 
     // MARK: - Behaviour

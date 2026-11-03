@@ -26,6 +26,7 @@
 		96B7518C3B59E30183A3EFB6 /* VoiceoverStudioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB4D8DD5DA621F5B9DEBBDBB /* VoiceoverStudioApp.swift */; };
 		BC9FF70FCB9BABD5E3370B0B /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44ACB303CAFA2EBF84C518F /* AppModel.swift */; };
 		C043A281E8AE3D3619DB2AE1 /* VoiceSwapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A117494EC154091D4CC11864 /* VoiceSwapper.swift */; };
+		C2820DA44EFE589327C54667 /* PreviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1AE469265BEFDC759901A9 /* PreviewScreen.swift */; };
 		C96BB69D1F453B150E40E4AF /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04AA229CB45AE06F8FAE2E3 /* Project.swift */; };
 		E612B5574346C96AA8714A0A /* PreviewPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02D594451504A9EC3C5C3569 /* PreviewPlayer.swift */; };
 		E93412C245DF476E76A102F5 /* Transcriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3CDD8C91E0047AC8ACD79A3 /* Transcriber.swift */; };
@@ -44,6 +45,7 @@
 		6703BCA694A4E80A45435583 /* PickedMovie.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickedMovie.swift; sourceTree = "<group>"; };
 		72E3FF3B6EAF6204B1EE2757 /* RecordingSections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSections.swift; sourceTree = "<group>"; };
 		7B406D41D1C09D5729D6DCB2 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
+		7C1AE469265BEFDC759901A9 /* PreviewScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewScreen.swift; sourceTree = "<group>"; };
 		8050AF81B0DA33C21552A7BA /* VoicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerView.swift; sourceTree = "<group>"; };
 		9EECA9CB4A47C63BD845F2A2 /* EditorModel+Effects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorModel+Effects.swift"; sourceTree = "<group>"; };
 		A117494EC154091D4CC11864 /* VoiceSwapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceSwapper.swift; sourceTree = "<group>"; };
@@ -76,6 +78,7 @@
 			isa = PBXGroup;
 			children = (
 				3CA4EF7668BB4B972F3DFF76 /* PlayerLayerView.swift */,
+				7C1AE469265BEFDC759901A9 /* PreviewScreen.swift */,
 				366393B17A56CF222EF9179E /* RecordingView.swift */,
 				CEEE14B7086705836E8DF262 /* TimelineStrip.swift */,
 			);
@@ -257,6 +260,7 @@
 				1D514E48379FA4047B254C14 /* PickedMovie.swift in Sources */,
 				312818AF50435F783C381A30 /* PlayerLayerView.swift in Sources */,
 				E612B5574346C96AA8714A0A /* PreviewPlayer.swift in Sources */,
+				C2820DA44EFE589327C54667 /* PreviewScreen.swift in Sources */,
 				C96BB69D1F453B150E40E4AF /* Project.swift in Sources */,
 				2E519FBFC19F42AC501270D8 /* RecordingSections.swift in Sources */,
 				5E7E112E4EF84C3C56DFA02E /* RecordingView.swift in Sources */,
