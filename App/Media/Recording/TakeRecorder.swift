@@ -8,11 +8,12 @@ import Observation
 @Observable
 final class TakeRecorder {
     enum Failure: LocalizedError {
-        case microphoneDenied
+        case microphoneDenied, alreadyRecording
 
         var errorDescription: String? {
             switch self {
             case .microphoneDenied: "Microphone access is off. Allow it in Settings to record takes."
+            case .alreadyRecording: "A take is already being recorded."
             }
         }
     }
@@ -36,6 +37,7 @@ final class TakeRecorder {
 
     /// Starts a new file and returns its URL. The session is configured so playback keeps working.
     func start(in directory: URL) throws -> URL {
+        guard recorder == nil else { throw Failure.alreadyRecording }
         try AudioSession.activateRecording()
 
         let url = directory.appending(path: "take-\(UUID().uuidString).m4a")

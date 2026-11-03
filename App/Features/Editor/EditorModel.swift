@@ -75,6 +75,9 @@ final class EditorModel {
     private var needsRecompose = false
     private var autosaver: ProjectAutosaver?
     var recordingStart: Double = 0
+    /// Record was pressed and the microphone permission is being asked; a second press must not start a
+    /// second recorder.
+    var isStartingRecording = false
     var transcriptions: [Take.ID: Task<Void, Never>] = [:]
 
     init(project: Project, client: ElevenLabsClient, store: ProjectStore?) {
@@ -120,7 +123,7 @@ final class EditorModel {
     }
 
     var canRecord: Bool {
-        player != nil && project.activeCharacter != nil && activity == nil
+        player != nil && project.activeCharacter != nil && activity == nil && !isStartingRecording && !isRecording
     }
 
     var canSwapVoices: Bool {

@@ -31,7 +31,10 @@ whole, and the same resolution feeds captions and the timeline lanes.
 - `isMeteringEnabled`; a `Task` samples `peakPower` every 20 ms (the `Waveform.bucket`) and fills
   `liveLevels` **up to the recorder's own clock** (`currentTime / bucket`). Filling by clock rather than by
   tick count is what keeps the live trace aligned with the playhead when the timer runs late.
-- Minimum take length is `TakeResolver.minimumDuration`; shorter stops are discarded.
+- Minimum take length is `TakeResolver.minimumDuration`; shorter stops are discarded and their file deleted.
+- `start(in:)` refuses while a recorder exists, and `EditorModel.isStartingRecording` covers the gap while
+  the microphone permission prompt is up, so a double tap on Record cannot start two recorders (the first
+  would have kept metering into `liveLevels` with no one to stop it).
 
 ## Waveforms (`Waveform`)
 

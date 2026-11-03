@@ -13,11 +13,15 @@ extension EditorModel {
 
     func startRecording() {
         guard canRecord, let player else { return }
+        isStartingRecording = true
         Task {
+            defer { isStartingRecording = false }
             guard await recorder.requestPermission() else {
                 failure = Failure(message: TakeRecorder.Failure.microphoneDenied.localizedDescription, recovery: .none)
                 return
             }
+            // The permission prompt can take a while; the screen may have moved on meanwhile.
+            guard activity == nil, player === self.player else { return }
             do {
                 recordingStart = player.currentTime().seconds
                 // The video is silenced while recording so the microphone doesn't pick it up.
@@ -36,7 +40,12 @@ extension EditorModel {
         player.rate = 0
         player.isMuted = false
         let duration = recorder.stop()
-        guard let url = recorder.lastRecordingURL, duration >= TakeResolver.minimumDuration else { return }
+        guard let url = recorder.lastRecordingURL else { return }
+        guard duration >= TakeResolver.minimumDuration else {
+            // Too short to be a take; the file would otherwise sit in the project folder (and its backup) forever.
+            try? FileManager.default.removeItem(at: url)
+            return
+        }
         let take = project.addTake(characterID: character.id, start: recordingStart, duration: duration, recording: url)
         player.seek(to: CMTime(seconds: recordingStart, preferredTimescale: 600))
         rebuildCaptions()
