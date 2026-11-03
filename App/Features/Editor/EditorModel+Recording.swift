@@ -2,8 +2,10 @@ import AVFoundation
 import Foundation
 import VoiceoverKit
 
-// Record mode: punch-in takes, transcription for captions and the voice swap.
+// Record mode: punch-in takes, who speaks them, transcription for captions, the voice swap and the trim.
 extension EditorModel {
+
+    // MARK: - Takes
 
     /// The take being recorded right now, for the timeline.
     var liveRecording: LiveRecording? {
@@ -14,14 +16,17 @@ extension EditorModel {
     func startRecording() {
         guard canRecord, let player else { return }
         isStartingRecording = true
+
         Task {
             defer { isStartingRecording = false }
+
             guard await recorder.requestPermission() else {
                 failure = Failure(message: TakeRecorder.Failure.microphoneDenied.localizedDescription, recovery: .none)
                 return
             }
             // The permission prompt can take a while; the screen may have moved on meanwhile.
             guard activity == nil, player === self.player else { return }
+
             do {
                 recordingStart = player.currentTime().seconds
                 // The video is silenced while recording so the microphone doesn't pick it up.
@@ -39,6 +44,7 @@ extension EditorModel {
         guard isRecording, let player, let character = project.activeCharacter else { return }
         player.rate = 0
         player.isMuted = false
+
         let duration = recorder.stop()
         guard let url = recorder.lastRecordingURL else { return }
         guard duration >= TakeResolver.minimumDuration else {
@@ -46,8 +52,10 @@ extension EditorModel {
             try? FileManager.default.removeItem(at: url)
             return
         }
+
         let take = project.addTake(characterID: character.id, start: recordingStart, duration: duration, recording: url)
         player.seek(to: CMTime(seconds: recordingStart, preferredTimescale: 600))
+
         rebuildCaptions()
         recompose()
         transcribe(take)
@@ -60,28 +68,44 @@ extension EditorModel {
         guard !isBusy else { return }
         transcriptions[take.id]?.cancel()
         transcriptions[take.id] = nil
+
         project.remove(take)
         rebuildCaptions()
         recompose()
     }
+
+    // MARK: - Captions
 
     /// Recognises the words in a take so captions can follow it. Runs alongside other work.
     func transcribe(_ take: Take) {
         transcriptions[take.id]?.cancel()
         transcriptions[take.id] = Task {
             defer { transcriptions[take.id] = nil }
+
             do {
                 let words = try await Transcriber.words(in: take.recording, locale: RecordingLanguage.locale)
                 guard !Task.isCancelled else { return }
                 project.setTranscript(words, for: take.id)
                 rebuildCaptions()
             } catch is CancellationError {
+                // The take was deleted or the editor closed.
             } catch {
                 failure = Failure(message: error.localizedDescription, recovery: .retry) { [weak self] in
                     self?.transcribe(take)
                 }
             }
         }
+    }
+
+    /// Captions for Record mode: each character's words on its own line, cut to the audible segments.
+    func rebuildCaptions() {
+        guard mode == .record else { return }
+        captions = CaptionAssembler.captions(
+            segments: project.segments,
+            takes: project.takes,
+            transcripts: project.transcripts,
+            characterOrder: project.characters.map(\.id)
+        )
     }
 
     // MARK: - Characters
@@ -98,6 +122,7 @@ extension EditorModel {
             transcriptions[take.id]?.cancel()
             transcriptions[take.id] = nil
         }
+
         project.removeCharacter(id)
         rebuildCaptions()
         recompose()
@@ -107,8 +132,32 @@ extension EditorModel {
         guard let current = project.character(character.id) else { return }
         let needsRecompose = current.voice != character.voice || current.settings != character.settings
         if needsRecompose && isBusy { return } // a swap is using those conversions right now
+
         project.update(character)
         if needsRecompose { recompose() }
+    }
+
+    // MARK: - Voice swap
+
+    /// Replaces the recorded voice of every unconverted take with its character's ElevenLabs voice.
+    func swapVoices() {
+        guard canSwapVoices, let videoURL else { return }
+        if let missing = project.charactersMissingVoice.first {
+            failure = Failure(message: "Pick a voice for \(missing.name) first.", recovery: .editInput)
+            return
+        }
+
+        let jobs = project.takesNeedingConversion.compactMap { take -> VoiceSwapper.Job? in
+            guard let character = project.character(take.characterID), let voice = character.voice else { return nil }
+            return VoiceSwapper.Job(take: take, voiceID: voice.voiceID, settings: character.settings)
+        }
+
+        run(.swapping, retry: { [weak self] in self?.swapVoices() }, operation: { [client, project] in
+            try await VoiceSwapper.convert(jobs, client: client, into: project.folder) { outcome in
+                project.setConvertedAudio(outcome.audio, drift: outcome.drift, for: outcome.takeID)
+            }
+            try await self.compose(videoURL: videoURL)
+        })
     }
 
     // MARK: - Trim
@@ -128,37 +177,8 @@ extension EditorModel {
             project.trimEnd = end
             if let start = project.trimStart, start >= end { project.trimStart = nil }
         }
+
         project.clearExport()
         savedToPhotos = false
-    }
-
-    /// Captions for Record mode: each character's words on its own line, cut to the audible segments.
-    func rebuildCaptions() {
-        guard mode == .record else { return }
-        captions = CaptionAssembler.captions(
-            segments: project.segments,
-            takes: project.takes,
-            transcripts: project.transcripts,
-            characterOrder: project.characters.map(\.id)
-        )
-    }
-
-    /// Replaces the recorded voice of every unconverted take with its character's ElevenLabs voice.
-    func swapVoices() {
-        guard canSwapVoices, let videoURL else { return }
-        if let missing = project.charactersMissingVoice.first {
-            failure = Failure(message: "Pick a voice for \(missing.name) first.", recovery: .editInput)
-            return
-        }
-        let jobs = project.takesNeedingConversion.compactMap { take -> VoiceSwapper.Job? in
-            guard let character = project.character(take.characterID), let voice = character.voice else { return nil }
-            return VoiceSwapper.Job(take: take, voiceID: voice.voiceID, settings: character.settings)
-        }
-        run(.swapping, retry: { [weak self] in self?.swapVoices() }, operation: { [client, project] in
-            try await VoiceSwapper.convert(jobs, client: client, into: project.folder) { outcome in
-                project.setConvertedAudio(outcome.audio, drift: outcome.drift, for: outcome.takeID)
-            }
-            try await self.compose(videoURL: videoURL)
-        })
     }
 }
