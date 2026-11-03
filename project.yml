@@ -2,7 +2,7 @@ name: VoiceoverStudio
 options:
   bundleIdPrefix: dev.velko
   deploymentTarget:
-    iOS: "18.0"
+    iOS: "26.0"
   createIntermediateGroups: true
 
 packages:

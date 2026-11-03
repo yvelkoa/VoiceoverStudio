@@ -15,7 +15,7 @@ network, parsing and caption maths, and has no UI imports, so it is tested with 
 
 ```mermaid
 flowchart LR
-    subgraph App["App (SwiftUI, iOS 18, main actor by default)"]
+    subgraph App["App (SwiftUI, iOS 26, main actor by default)"]
         direction TB
         AppModel["AppModel<br/>API key presence, key verification"]
         EditorModel["EditorModel<br/>inputs, activity state, retry"]
@@ -158,7 +158,7 @@ flowchart LR
 1. Get an API key at elevenlabs.io → Developers → API Keys. The free tier is enough. Text to Speech, Voices and
    Sound Effects permissions are all you need.
 2. `brew install xcodegen && xcodegen generate && open VoiceoverStudio.xcodeproj`
-3. Run on an iOS 18+ simulator or device, open Settings and paste the key.
+3. Run on an iOS 26+ simulator or device, open Settings and paste the key.
 
 Tests: `swift test --package-path Packages/VoiceoverKit`
 
