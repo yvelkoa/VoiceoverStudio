@@ -34,6 +34,8 @@ targets:
           UIImageName: LaunchIcon
           UIImageRespectsSafeAreaInsets: true
         UIApplicationSupportsIndirectInputEvents: true
+        # HTTPS only; answers App Store Connect's export-compliance question up front.
+        ITSAppUsesNonExemptEncryption: false
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSMicrophoneUsageDescription: Voiceover Studio records your voice to lay it over the video.
         NSSpeechRecognitionUsageDescription: Speech recognition turns your takes into captions.
