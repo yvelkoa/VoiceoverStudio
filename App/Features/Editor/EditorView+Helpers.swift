@@ -17,30 +17,26 @@ extension EditorView {
                     withAnimation { isLoadingVideo = false }
                     await model.setVideo(movie.url)
                 }
+                // Cleared so that picking the same item again counts as a change.
+                pickedItem = nil
             } catch {
                 model.failure = .init(message: "Couldn't load this video.", recovery: .none)
             }
         }
     }
 
-    func failureAlert(_ failure: EditorModel.Failure) -> Alert {
+    /// The alert's buttons follow the failure's recovery; the message is the failure's own text.
+    @ViewBuilder
+    func failureActions(_ failure: EditorModel.Failure) -> some View {
         switch failure.recovery {
         case .openSettings:
-            Alert(
-                title: Text("Something went wrong"),
-                message: Text(failure.message),
-                primaryButton: .default(Text("Open Settings")) { showsSettings = true },
-                secondaryButton: .cancel()
-            )
+            Button("Open Settings") { showsSettings = true }
+            Button("Cancel", role: .cancel) {}
         case .retry:
-            Alert(
-                title: Text("Something went wrong"),
-                message: Text(failure.message),
-                primaryButton: .default(Text("Retry")) { failure.retry?() },
-                secondaryButton: .cancel()
-            )
+            Button("Retry") { failure.retry?() }
+            Button("Cancel", role: .cancel) {}
         case .editInput, .none:
-            Alert(title: Text("Something went wrong"), message: Text(failure.message))
+            Button("OK", role: .cancel) {}
         }
     }
 }

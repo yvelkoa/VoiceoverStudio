@@ -203,7 +203,10 @@ final class Project: Identifiable {
 
     @discardableResult
     func addCharacter(named name: String) -> Character {
-        let character = Character(name: name, colorIndex: characters.count)
+        // The first colour nobody uses, so a character added after a deletion doesn't share a lane colour.
+        let used = Set(characters.map(\.colorIndex))
+        let colorIndex = (0...characters.count).first { !used.contains($0) } ?? characters.count
+        let character = Character(name: name, colorIndex: colorIndex)
         characters.append(character)
         if activeCharacterID == nil { activeCharacterID = character.id }
         return character

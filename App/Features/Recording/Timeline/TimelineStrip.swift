@@ -164,7 +164,7 @@ struct TimelineStrip: View {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(.quaternary)
                         .frame(width: contentWidth, height: Self.laneHeight)
-                    ForEach(segments.filter { $0.characterID == character.id }, id: \.start) { segment in
+                    ForEach(segments.filter { $0.characterID == character.id }, id: \.self) { segment in
                         SegmentView(
                             segment: segment,
                             waveform: waveforms[segment.takeID],

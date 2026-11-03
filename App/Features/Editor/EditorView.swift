@@ -52,9 +52,13 @@ struct EditorView: View {
                     )
                 }
             }
-            .alert(item: $model.failure) { failure in
-                failureAlert(failure)
-            }
+            .alert(
+                "Something went wrong",
+                isPresented: Binding(get: { model.failure != nil }, set: { if !$0 { model.failure = nil } }),
+                presenting: model.failure,
+                actions: failureActions,
+                message: { failure in Text(failure.message) }
+            )
             .onChange(of: pickedItem) { _, item in loadVideo(item) }
             .task { await loadDebugVideo() }
         }

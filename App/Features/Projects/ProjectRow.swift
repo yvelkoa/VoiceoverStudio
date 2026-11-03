@@ -16,9 +16,9 @@ struct ProjectRow: View {
                 }
             }
             .task(id: summary.thumbnail) {
-                // Decoded off the main thread so a long list scrolls without hitches.
+                // UIImage decodes lazily at draw time; byPreparingForDisplay does it here, off the main thread.
                 guard let path = summary.thumbnail?.path else { return }
-                image = await Task.detached(priority: .utility) { UIImage(contentsOfFile: path) }.value
+                image = await UIImage(contentsOfFile: path)?.byPreparingForDisplay()
             }
             .frame(width: 54, height: 72)
             .background(.quaternary)

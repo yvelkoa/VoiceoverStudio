@@ -104,6 +104,6 @@ Why not a `ScrollView`: the first version used `ScrollPosition` with one long li
 playback. It was smooth but the animation outlived a pause and the strip kept moving after a take stopped;
 `TimelineView` has no such state.
 
-Lanes: one per character in declaration order with the resolved segments (tinted block + waveform), plus a
-live segment in full colour while recording; one Effects lane with prompt text; the trim range is shown by
+Lanes: one per character in declaration order with the resolved segments (tinted block + waveform, identified
+by the whole `AudioSegment` value, which is `Hashable`), plus a live segment in full colour while recording; one Effects lane with prompt text; the trim range is shown by
 dimming the strip outside it.

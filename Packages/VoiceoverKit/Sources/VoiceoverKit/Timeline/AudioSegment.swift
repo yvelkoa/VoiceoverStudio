@@ -1,7 +1,7 @@
 import Foundation
 
 /// A slice of a take that survives overlap resolution and goes into the mix.
-public struct AudioSegment: Equatable, Sendable {
+public struct AudioSegment: Hashable, Sendable {
     public let takeID: Take.ID
     public let characterID: UUID
     /// Position on the timeline.
