@@ -33,6 +33,9 @@ struct TimelineStrip: View {
 
     @State private var dragStartTime: Double?
     @State private var scrubTime: Double = 0
+    @State private var momentum: Task<Void, Never>?
+    /// Per-millisecond velocity multiplier, the same curve UIScrollView uses for normal deceleration.
+    private static let decelerationRate = 0.998
 
     private var pointsPerSecond: CGFloat { Self.pointsPerSecond }
     private var contentWidth: CGFloat { CGFloat(duration) * pointsPerSecond }
@@ -79,6 +82,7 @@ struct TimelineStrip: View {
         DragGesture(minimumDistance: 4)
             .onChanged { value in
                 if dragStartTime == nil {
+                    momentum?.cancel()
                     dragStartTime = displayedTime
                     scrubTime = displayedTime
                     isScrubbing = true
@@ -87,10 +91,37 @@ struct TimelineStrip: View {
                 scrubTime = min(max(time, 0), duration)
                 onScrub(scrubTime)
             }
-            .onEnded { _ in
+            .onEnded { value in
                 dragStartTime = nil
-                isScrubbing = false
+                // Points per second of finger movement become seconds of timeline per second.
+                let velocity = -Double(value.velocity.width / pointsPerSecond)
+                coast(velocity: velocity)
             }
+    }
+
+    /// Keeps the strip moving after the finger lifts, slowing like a scroll view, until it stops or hits an end.
+    private func coast(velocity initial: Double) {
+        momentum?.cancel()
+        guard abs(initial) > 0.05 else {
+            isScrubbing = false
+            return
+        }
+        momentum = Task {
+            var velocity = initial
+            var time = scrubTime
+            let step = 1.0 / 120
+            let decay = pow(Self.decelerationRate, step * 1000)
+            while !Task.isCancelled, abs(velocity) > 0.02 {
+                try? await Task.sleep(for: .seconds(step))
+                guard !Task.isCancelled else { return }
+                time = min(max(time + velocity * step, 0), duration)
+                velocity *= decay
+                scrubTime = time
+                onScrub(time)
+                if time <= 0 || time >= duration { break }
+            }
+            if !Task.isCancelled { isScrubbing = false }
+        }
     }
 
     @ViewBuilder

@@ -6,6 +6,8 @@ import VoiceoverKit
 struct PreviewScreen: View {
     let player: AVPlayer
     let captions: [Caption]
+    /// The export range; playback is confined to it so the preview shows exactly what will be exported.
+    var range: ClosedRange<Double>?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -22,9 +24,16 @@ struct PreviewScreen: View {
                 }
         }
         .onAppear {
-            player.seek(to: .zero)
+            let start = CMTime(seconds: range?.lowerBound ?? 0, preferredTimescale: 600)
+            if let range {
+                player.currentItem?.forwardPlaybackEndTime = CMTime(seconds: range.upperBound, preferredTimescale: 600)
+            }
+            player.seek(to: start, toleranceBefore: .zero, toleranceAfter: .zero)
             player.play()
         }
-        .onDisappear { player.pause() }
+        .onDisappear {
+            player.pause()
+            player.currentItem?.forwardPlaybackEndTime = .invalid
+        }
     }
 }

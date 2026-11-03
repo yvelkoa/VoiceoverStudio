@@ -80,7 +80,11 @@ struct RecordingView: View {
             }
             .fullScreenCover(isPresented: $showsPreview) {
                 if let player = model.player {
-                    PreviewScreen(player: player, captions: model.captions)
+                    PreviewScreen(
+                        player: player,
+                        captions: model.captions,
+                        range: model.project.isTrimmed ? model.project.trimRange : nil
+                    )
                 }
             }
             .sheet(isPresented: $showsEffectSheet) {
