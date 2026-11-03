@@ -102,10 +102,18 @@ mode) or taken from the TTS alignment (type mode).
 
 ## Audio session
 
-`AudioSession.activatePlayback()` sets `.playback / .moviePlayback` at launch and after every take;
-`activateRecording()` sets `.playAndRecord` with speaker output and Bluetooth HFP while a take runs. The
-system default category obeys the silent switch, which made a relaunched app play the edit without sound
-until the first recording changed categories.
+`AudioSession.configurePlayback()` sets the `.playback / .moviePlayback` **category** at launch without
+activating the session: activating would stop the user's music the moment the project list appears, and
+AVPlayer activates the session itself when it starts playing. `activatePlayback()` (category + active) runs
+after every take; `activateRecording()` sets `.playAndRecord` with speaker output and Bluetooth HFP while a
+take runs. The system default category obeys the silent switch, which made a relaunched app play the edit
+without sound until the first recording changed categories.
+
+While a take runs, `TakeRecorder` observes the session: an interruption (`.began`: call, Siri, alarm) or a
+route change with `.oldDeviceUnavailable` (headset unplugged) calls `onInterruption`, which `EditorModel`
+wires to `stopRecording()`, so what was recorded becomes a take instead of leaving REC over a recorder the
+system has already stopped. `RecordingView` does the same when the scene goes to the background: there is no
+background audio mode, so the recorder would stop anyway.
 
 ## Recording while the video plays
 

@@ -7,6 +7,7 @@ struct RecordingView: View {
     @Bindable var model: EditorModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.scenePhase) private var scenePhase
 
     /// Seeks are coalesced: at most one in flight, the latest requested time waits for it.
     @State private var isSeeking = false
@@ -101,6 +102,10 @@ struct RecordingView: View {
             // Recording starts and stops the player itself; keep the transport in step.
             isPlaying = recording || (model.player?.rate ?? 0) > 0
             if !recording, let player = model.player { currentTime = player.currentTime().seconds }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // No background audio mode: the system stops the recorder when the app leaves; end the take with it.
+            if phase == .background, model.isRecording { model.stopRecording() }
         }
         .onDisappear { model.player?.pause() }
     }

@@ -46,7 +46,8 @@ Honest list for the next review. Each item says why it is still there.
 1. `analyzeSequence` + `finalizeAndFinish` never ends the results stream; use `finishAfterFile`.
 2. `AssetInventory.reserve(locale:)` before requesting a speech model.
 3. `Configuration(for: composition)` ignores `preferredTransform` → half-black exports of phone clips.
-4. The default audio session obeys the silent switch → "no sound after relaunch".
+4. The default audio session obeys the silent switch → "no sound after relaunch". But set the category only
+   at launch: `setActive(true)` there silences the user's music before they have done anything.
 5. `onDisappear` fires when a child is pushed; use lifetime (`isolated deinit`) for teardown.
 6. A missing key permission looks like a rejected key unless `missing_permissions` is handled.
 7. Shell: a `;` after a failing build still runs the commit. Use a script with `set -e`.

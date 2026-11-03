@@ -1,7 +1,10 @@
 import AVFoundation
 import Observation
 
-/// Records the microphone into an AAC file in the temporary directory.
+/// Records the microphone into an AAC file in the given directory (the project folder).
+///
+/// A phone call, Siri, or an unplugged headset stops the system's recorder underneath us; `onInterruption`
+/// lets the owner end the take properly (keeping what was recorded) instead of showing REC over a dead recorder.
 @Observable
 final class TakeRecorder {
     enum Failure: LocalizedError {
@@ -21,6 +24,10 @@ final class TakeRecorder {
     private(set) var liveLevels: [Float] = []
     private var recorder: AVAudioRecorder?
     private var metering: Task<Void, Never>?
+    private var sessionObservers: [any NSObjectProtocol] = []
+
+    /// Called on the main actor when the session is interrupted or the input route goes away mid-take.
+    var onInterruption: (() -> Void)?
 
     /// Asks for microphone access the first time; afterwards returns the stored answer.
     func requestPermission() async -> Bool {
@@ -46,6 +53,7 @@ final class TakeRecorder {
         liveLevels = []
         isRecording = true
         startMetering()
+        observeSession()
         return url
     }
 
@@ -53,12 +61,42 @@ final class TakeRecorder {
     func stop() -> Double {
         metering?.cancel()
         metering = nil
+        stopObservingSession()
         let duration = recorder?.currentTime ?? 0
         recorder?.stop()
         recorder = nil
         isRecording = false
         AudioSession.activatePlayback()
         return duration
+    }
+
+    /// Interruptions (`.began`) and a vanished input (`.oldDeviceUnavailable`) end the take. The notification
+    /// closures are nonisolated, so only a plain value is taken from them before hopping to the main actor.
+    private func observeSession() {
+        let center = NotificationCenter.default
+        let session = AVAudioSession.sharedInstance()
+        sessionObservers = [
+            center.addObserver(forName: AVAudioSession.interruptionNotification, object: session, queue: nil) { note in
+                let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+                guard raw == AVAudioSession.InterruptionType.began.rawValue else { return }
+                Task { @MainActor [weak self] in self?.interrupted() }
+            },
+            center.addObserver(forName: AVAudioSession.routeChangeNotification, object: session, queue: nil) { note in
+                let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
+                guard raw == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue else { return }
+                Task { @MainActor [weak self] in self?.interrupted() }
+            },
+        ]
+    }
+
+    private func stopObservingSession() {
+        for observer in sessionObservers { NotificationCenter.default.removeObserver(observer) }
+        sessionObservers = []
+    }
+
+    private func interrupted() {
+        guard isRecording else { return }
+        onInterruption?()
     }
 
     /// Samples the peak level on the waveform's grid. The array is filled up to the recorder's own clock,

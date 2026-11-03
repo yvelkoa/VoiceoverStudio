@@ -81,6 +81,8 @@ final class EditorModel {
         self.project = project
         self.client = client
         if let store { autosaver = ProjectAutosaver(project: project, store: store) }
+        // A call or an unplugged headset ends the take the same way Stop does, keeping what was recorded.
+        recorder.onInterruption = { [weak self] in self?.stopRecording() }
         restore()
     }
 
