@@ -2,21 +2,23 @@ import SwiftUI
 import VoiceoverKit
 
 /// Who speaks: one row per character, tap to make active, navigate to pick a voice.
+/// Edits go through the model so the composition and captions follow (see `EditorModel.update(_:)`).
 struct CharactersSection: View {
-    @Bindable var project: Project
-    let client: ElevenLabsClient
+    let model: EditorModel
+
+    private var project: Project { model.project }
 
     var body: some View {
         Section {
             ForEach(project.characters) { character in
-                CharacterRow(project: project, character: character, client: client)
+                CharacterRow(model: model, character: character)
             }
             .onDelete { offsets in
-                for index in offsets { project.removeCharacter(project.characters[index].id) }
+                for index in offsets { model.removeCharacter(project.characters[index].id) }
             }
-            Button("Add character", systemImage: "person.badge.plus") {
-                project.addCharacter(named: "Character \(project.characters.count + 1)")
-            }
+            // The last character stays: takes need someone to belong to.
+            .deleteDisabled(project.characters.count == 1 || model.isBusy)
+            Button("Add character", systemImage: "person.badge.plus") { model.addCharacter() }
         } header: {
             Text("Characters")
         } footer: {
@@ -26,9 +28,10 @@ struct CharactersSection: View {
 }
 
 private struct CharacterRow: View {
-    @Bindable var project: Project
+    let model: EditorModel
     let character: Character
-    let client: ElevenLabsClient
+
+    private var project: Project { model.project }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -47,7 +50,7 @@ private struct CharacterRow: View {
 
             // The voice name can be long ("Adam - Dominant, Firm"); it yields to the name field and truncates.
             NavigationLink {
-                VoicePickerView(client: client, selection: voiceBinding)
+                VoicePickerView(client: model.client, selection: voiceBinding)
             } label: {
                 Text(character.voice?.name ?? "Voice")
                     .lineLimit(1)
@@ -66,7 +69,7 @@ private struct CharacterRow: View {
             set: { name in
                 guard var updated = project.character(character.id) else { return }
                 updated.name = name
-                project.update(updated)
+                model.update(updated)
             }
         )
     }
@@ -77,7 +80,7 @@ private struct CharacterRow: View {
             set: { voice in
                 guard var updated = project.character(character.id) else { return }
                 updated.voice = voice
-                project.update(updated)
+                model.update(updated)
             }
         )
     }

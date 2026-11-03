@@ -24,7 +24,7 @@ struct EditorView: View {
                 case .type:
                     scriptSection
                 case .record:
-                    CharactersSection(project: model.project, client: model.client)
+                    CharactersSection(model: model)
                     TakesSection(project: model.project, canEdit: !model.isBusy) { model.delete($0) }
                 }
                 if model.player != nil {

@@ -57,18 +57,13 @@ struct RecordingView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu("Trim", systemImage: "scissors") {
                         Button("Start export here", systemImage: "arrow.right.to.line") {
-                            model.project.trimStart = currentTime
-                            if let end = model.project.trimEnd, end <= currentTime { model.project.trimEnd = nil }
+                            model.setTrim(start: currentTime)
                         }
                         Button("End export here", systemImage: "arrow.left.to.line") {
-                            model.project.trimEnd = currentTime
-                            if let start = model.project.trimStart, start >= currentTime { model.project.trimStart = nil }
+                            model.setTrim(end: currentTime)
                         }
                         if model.project.isTrimmed {
-                            Button("Clear trim", systemImage: "xmark", role: .destructive) {
-                                model.project.trimStart = nil
-                                model.project.trimEnd = nil
-                            }
+                            Button("Clear trim", systemImage: "xmark", role: .destructive) { model.setTrim(clear: true) }
                         }
                     }
                     .disabled(model.isRecording)

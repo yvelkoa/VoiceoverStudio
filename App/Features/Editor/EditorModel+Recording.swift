@@ -75,6 +75,54 @@ extension EditorModel {
         }
     }
 
+    // MARK: - Characters
+
+    /// Character edits go through the model, not straight to the project: deleting a character drops its
+    /// takes and files, and a new voice drops its conversions, so the edit has to be rebuilt afterwards.
+    func addCharacter() {
+        project.addCharacter(named: "Character \(project.characters.count + 1)")
+    }
+
+    func removeCharacter(_ id: Character.ID) {
+        guard !isBusy, project.characters.count > 1 else { return }
+        for take in project.takes where take.characterID == id {
+            transcriptions[take.id]?.cancel()
+            transcriptions[take.id] = nil
+        }
+        project.removeCharacter(id)
+        rebuildCaptions()
+        recompose()
+    }
+
+    func update(_ character: Character) {
+        guard let current = project.character(character.id) else { return }
+        let needsRecompose = current.voice != character.voice || current.settings != character.settings
+        if needsRecompose && isBusy { return } // a swap is using those conversions right now
+        project.update(character)
+        if needsRecompose { recompose() }
+    }
+
+    // MARK: - Trim
+
+    /// The export range. Only the export reads it, so no recompose; but the current export no longer
+    /// matches it and is dropped.
+    func setTrim(start: Double? = nil, end: Double? = nil, clear: Bool = false) {
+        if clear {
+            project.trimStart = nil
+            project.trimEnd = nil
+        }
+        if let start {
+            project.trimStart = start
+            if let end = project.trimEnd, end <= start { project.trimEnd = nil }
+        }
+        if let end {
+            project.trimEnd = end
+            if let start = project.trimStart, start >= end { project.trimStart = nil }
+        }
+        project.clearExport()
+        savedToPhotos = false
+    }
+
     /// Captions for Record mode: each character's words on its own line, cut to the audible segments.
     func rebuildCaptions() {
         guard mode == .record else { return }

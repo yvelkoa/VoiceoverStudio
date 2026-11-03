@@ -60,6 +60,13 @@ needs are `internal`, not `private`, on purpose.
 about AVFoundation, networking or Observation beyond being `@Observable`. `EditorModel` is the only place
 that decides *when* to recompose, transcribe, swap or export.
 
+That makes a rule for views: **views do not mutate `Project` except for presentation-only fields**
+(`activeCharacterID`, `mix`, `script`, `voice` in Type mode). Anything that changes which audio is heard or
+what the export covers (takes, characters and their voices, effects, trim, mode) goes through an `EditorModel`
+method, which performs the mutation and then rebuilds captions, recomposes or drops the stale export. The
+first version let `CharactersSection` delete a character straight on the project; its takes and files went,
+the player kept an item pointing at them and the captions stayed.
+
 ## Data flow in a session
 
 1. `ProjectListView` → tap → `ProjectScreen` sleeps 300 ms (lets the push animate), decodes the manifest in
