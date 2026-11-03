@@ -2,7 +2,7 @@ import Foundation
 
 /// A speaker in the video. Takes belong to a character; the character decides which ElevenLabs voice
 /// they end up with and how expressively it performs.
-public struct Character: Identifiable, Equatable, Sendable {
+public struct Character: Identifiable, Equatable, Codable, Sendable {
     public let id: UUID
     public var name: String
     public var voice: Voice?

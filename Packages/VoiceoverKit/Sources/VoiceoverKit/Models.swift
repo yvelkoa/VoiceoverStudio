@@ -1,7 +1,7 @@
 import Foundation
 
 /// A voice available to the account (`GET /v1/voices`).
-public struct Voice: Decodable, Identifiable, Hashable, Sendable {
+public struct Voice: Codable, Identifiable, Hashable, Sendable {
     public let voiceID: String
     public let name: String
     public let category: String?
@@ -37,6 +37,15 @@ public struct Voice: Decodable, Identifiable, Hashable, Sendable {
         // Labels are free-form; a single non-string value must not fail the whole voice list.
         labels = (try? c.decodeIfPresent([String: String].self, forKey: .labels)) ?? [:]
         previewURL = try? c.decodeIfPresent(URL.self, forKey: .previewURL)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(voiceID, forKey: .voiceID)
+        try c.encode(name, forKey: .name)
+        try c.encodeIfPresent(category, forKey: .category)
+        try c.encode(labels, forKey: .labels)
+        try c.encodeIfPresent(previewURL, forKey: .previewURL)
     }
 }
 

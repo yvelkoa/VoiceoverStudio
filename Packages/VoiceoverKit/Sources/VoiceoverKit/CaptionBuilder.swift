@@ -1,6 +1,6 @@
 import Foundation
 
-public struct TimedWord: Equatable, Sendable {
+public struct TimedWord: Equatable, Codable, Sendable {
     public let text: String
     public let start: Double
     public let end: Double
@@ -12,7 +12,7 @@ public struct TimedWord: Equatable, Sendable {
     }
 }
 
-public struct Caption: Identifiable, Equatable, Sendable {
+public struct Caption: Identifiable, Equatable, Codable, Sendable {
     public let id: Int
     public let text: String
     public let start: Double
