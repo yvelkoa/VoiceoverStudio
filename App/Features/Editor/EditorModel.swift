@@ -74,9 +74,12 @@ final class EditorModel {
         restore()
     }
 
-    /// Flushes the last changes; call when the editor goes away.
-    func close() {
-        cancel()
+    /// The editor is gone when the screen that owned it is popped: flush the last changes and stop playback.
+    /// (Not onDisappear: that also fires when a picker is pushed on top, and must not cancel an export.)
+    isolated deinit {
+        work?.cancel()
+        frameStripTask?.cancel()
+        for task in transcriptions.values { task.cancel() }
         player?.pause()
         autosaver?.stop()
     }
@@ -90,7 +93,7 @@ final class EditorModel {
         recompose()
         let sources = project.takes.map { ($0.id, $0.recording) } + project.effects.map { ($0.id, $0.audio) }
         for (id, url) in sources {
-            Task { [project] in
+            Task(priority: .utility) { [project] in
                 if let waveform = try? await Waveform.load(url) { project.setWaveform(waveform, for: id) }
             }
         }
@@ -146,11 +149,11 @@ final class EditorModel {
         frameStrip = nil
         let destination = project.fileURL("video", extension: picked.pathExtension.isEmpty ? "mov" : picked.pathExtension)
         do {
-            if picked.path.hasPrefix(project.folder.path) {
+            if picked.path.hasPrefix(URL.temporaryDirectory.path) {
+                // Our own copy from the picker: move it, nothing else needs it.
                 try FileManager.default.moveItem(at: picked, to: destination)
             } else {
                 try FileManager.default.copyItem(at: picked, to: destination)
-                try? FileManager.default.removeItem(at: picked)
             }
         } catch {
             failure = Failure(message: "Couldn't store this video.", recovery: .none)
@@ -262,6 +265,7 @@ final class EditorModel {
         // No video composition for the preview: AVPlayer applies the track's preferredTransform itself and
         // captions are a SwiftUI overlay. The compositor is only needed for the export, and in the simulator
         // its frames can't be displayed by AVPlayerLayer at all (IQ-CA error -19230, black video).
+        // AVPlayerItem is main-actor bound in iOS 26; creating it is cheap, loading happens asynchronously.
         let item = AVPlayerItem(asset: composed.composition)
         var levels = project.mix
         if clips.isEmpty { levels.original = 1 } // nothing to duck under yet

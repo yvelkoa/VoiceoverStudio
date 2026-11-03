@@ -3,7 +3,7 @@ import VoiceoverKit
 
 /// What a project looks like on disk: `project.json` next to its media files.
 /// Files are referenced by name, never by absolute path: iOS moves the app container between launches.
-struct ProjectDocument: Codable {
+nonisolated struct ProjectDocument: Codable {
     static let fileName = "project.json"
     static let thumbnailName = "thumbnail.jpg"
 
@@ -56,12 +56,12 @@ struct ProjectDocument: Codable {
 }
 
 /// Record takes with the microphone, or type a script for ElevenLabs to read.
-enum EditingMode: String, Codable, Hashable {
+nonisolated enum EditingMode: String, Codable, Hashable {
     case record, type
 }
 
 /// What the project list shows without loading a whole project.
-struct ProjectSummary: Identifiable, Equatable {
+nonisolated struct ProjectSummary: Identifiable, Equatable {
     let id: UUID
     let title: String
     let updatedAt: Date

@@ -57,7 +57,6 @@ struct EditorView: View {
             }
             .onChange(of: pickedItem) { _, item in loadVideo(item) }
             .task { await loadDebugVideo() }
-            .onDisappear { model.close() }
         }
     }
 

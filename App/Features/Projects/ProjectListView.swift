@@ -140,8 +140,10 @@ struct ProjectScreen: View {
         }
         .task(id: projectID) {
             guard model == nil else { return }
+            // Let the push animation run on an empty screen; the player and waveforms start right after.
+            try? await Task.sleep(for: .milliseconds(300))
             do {
-                let project = try app.store.load(projectID)
+                let project = try await app.store.loadInBackground(projectID)
                 model = EditorModel(project: project, client: app.client, store: app.store)
             } catch {
                 failed = true

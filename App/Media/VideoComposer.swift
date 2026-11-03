@@ -95,7 +95,9 @@ nonisolated enum VideoComposer {
 
         let videoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)!
         try videoTrack.insertTimeRange(fullRange, of: sourceVideo, at: .zero)
-        videoTrack.preferredTransform = try await sourceVideo.load(.preferredTransform)
+        let (naturalSize, transform, frameRate) = try await sourceVideo.load(.naturalSize, .preferredTransform, .nominalFrameRate)
+        // The preview has no video composition and relies on this to show phone footage upright.
+        videoTrack.preferredTransform = transform
 
         var trackKinds: [CMPersistentTrackID: AudioKind] = [:]
         if let sourceAudio = try await asset.loadTracks(withMediaType: .audio).first {
@@ -110,8 +112,9 @@ nonisolated enum VideoComposer {
             }
         }
 
-        // Picks up the track's preferredTransform, so portrait phone videos render upright.
-        let videoConfiguration = try await AVVideoComposition.Configuration(for: composition)
+        let videoConfiguration = videoConfiguration(
+            for: videoTrack, naturalSize: naturalSize, transform: transform, frameRate: frameRate, range: fullRange
+        )
 
         return ComposedVideo(composition: composition, trackKinds: trackKinds, videoConfiguration: videoConfiguration)
     }
@@ -158,6 +161,34 @@ nonisolated enum VideoComposer {
     }
 
     // MARK: - Private
+
+    /// The export's video composition, built by hand. `Configuration(for:)` on a composition ignores the
+    /// track's preferredTransform: a portrait phone clip (1920×1080 rotated 90°) came out as a landscape frame
+    /// with the picture in one half and black in the other. Here the render size is the transformed natural
+    /// size and the transform is re-anchored so the picture starts at the origin.
+    private static func videoConfiguration(
+        for track: AVMutableCompositionTrack,
+        naturalSize: CGSize,
+        transform: CGAffineTransform,
+        frameRate: Float,
+        range: CMTimeRange
+    ) -> AVVideoComposition.Configuration {
+        let bounds = CGRect(origin: .zero, size: naturalSize).applying(transform)
+        let renderSize = CGSize(width: abs(bounds.width).rounded(), height: abs(bounds.height).rounded())
+        let anchored = transform.concatenating(CGAffineTransform(translationX: -bounds.minX, y: -bounds.minY))
+
+        var layer = AVVideoCompositionLayerInstruction.Configuration(assetTrack: track)
+        layer.setTransform(anchored, at: .zero)
+        let instruction = AVVideoCompositionInstruction(configuration: .init(
+            layerInstructions: [AVVideoCompositionLayerInstruction(configuration: layer)],
+            timeRange: range
+        ))
+        return AVVideoComposition.Configuration(
+            frameDuration: CMTime(value: 1, timescale: max(Int32(frameRate.rounded()), 24)),
+            instructions: [instruction],
+            renderSize: renderSize
+        )
+    }
 
     /// Adds the clip on its own track. Returns nil when nothing of it falls inside the edit.
     private static func insert(

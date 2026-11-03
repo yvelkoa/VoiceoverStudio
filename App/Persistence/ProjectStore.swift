@@ -39,6 +39,13 @@ final class ProjectStore {
         return Project(document: try readDocument(in: folder), folder: folder)
     }
 
+    /// Reads and decodes the manifest off the main actor, then builds the project.
+    func loadInBackground(_ id: UUID) async throws -> Project {
+        let folder = folder(for: id)
+        let document = try await Task.detached(priority: .userInitiated) { try Self.decodeDocument(in: folder) }.value
+        return Project(document: document, folder: folder)
+    }
+
     /// Writes the manifest atomically and refreshes the list entry.
     func save(_ project: Project) throws {
         var document = project.document
@@ -66,6 +73,10 @@ final class ProjectStore {
     }
 
     private func readDocument(in folder: URL) throws -> ProjectDocument {
+        try Self.decodeDocument(in: folder)
+    }
+
+    nonisolated private static func decodeDocument(in folder: URL) throws -> ProjectDocument {
         let data = try Data(contentsOf: folder.appending(path: ProjectDocument.fileName))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
