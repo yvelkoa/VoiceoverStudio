@@ -1,15 +1,19 @@
+import AVFoundation
 import SwiftUI
 import VoiceoverKit
 
-/// Photos-style scrubber: a strip of frames scrolls under a fixed playhead; takes are drawn in lanes below.
+/// Photos-style scrubber: a strip of frames slides under a fixed playhead; takes are drawn in lanes below.
 ///
-/// Scrolling the strip moves the playhead (and seeks the player); while the video plays the strip follows
-/// the player. `isScrubbing` tells the owner which direction the sync currently goes.
+/// While the video plays, `TimelineView` repositions the strip every display frame from the player's clock.
+/// Dragging scrubs 1:1 (no inertia, like the Photos video scrubber); a tap seeks to the tapped moment.
 struct TimelineStrip: View {
+    let player: AVPlayer?
     let frames: [FrameStrip.Frame]
     let duration: Double
     let segments: [AudioSegment]
+    let waveforms: [Take.ID: Waveform]
     let characters: [Character]
+    /// The time to show when the player is not running (after a seek, a stop, or on first appearance).
     let currentTime: Double
     let isPlaying: Bool
     let isLocked: Bool
@@ -18,14 +22,11 @@ struct TimelineStrip: View {
 
     static let pointsPerSecond: CGFloat = 56
     static let frameHeight: CGFloat = 64
-    private static let laneHeight: CGFloat = 8
-    private static let laneSpacing: CGFloat = 3
+    static let laneHeight: CGFloat = 22
+    private static let laneSpacing: CGFloat = 4
 
-    @State private var position = ScrollPosition(x: 0)
-    /// Last offset reported by the scroll view, to detect drift between the follow animation and the player.
-    @State private var observedOffset: CGFloat = 0
-    /// Follow animations drift after seeks or stalls; past this the strip re-anchors to the player.
-    private static let driftTolerance = 0.12
+    @State private var dragStartTime: Double?
+    @State private var scrubTime: Double = 0
 
     private var pointsPerSecond: CGFloat { Self.pointsPerSecond }
     private var contentWidth: CGFloat { CGFloat(duration) * pointsPerSecond }
@@ -35,62 +36,52 @@ struct TimelineStrip: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let halfWidth = geometry.size.width / 2
-            ScrollView(.horizontal, showsIndicators: false) {
+            let center = geometry.size.width / 2
+            TimelineView(.animation(paused: !isPlaying || isScrubbing)) { _ in
+                let time = displayedTime
                 VStack(alignment: .leading, spacing: 6) {
                     frameRow
                     lanes
                 }
-                .padding(.horizontal, halfWidth)
+                .offset(x: center - CGFloat(time) * pointsPerSecond)
             }
-            .scrollPosition($position)
-            .scrollDisabled(isLocked)
-            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.x } action: { _, offset in
-                observedOffset = offset
-                guard isScrubbing else { return }
-                onScrub(min(max(Double(offset / pointsPerSecond), 0), duration))
+            .frame(width: geometry.size.width, alignment: .leading)
+            .clipped()
+            .contentShape(.rect)
+            .gesture(scrubGesture, isEnabled: !isLocked)
+            .onTapGesture { location in
+                guard !isLocked else { return }
+                let tapped = displayedTime + Double((location.x - center) / pointsPerSecond)
+                onScrub(min(max(tapped, 0), duration))
             }
-            .onScrollPhaseChange { _, phase in
-                isScrubbing = phase != .idle && phase != .animating
-            }
-            .onChange(of: isPlaying) { _, playing in
-                guard !isScrubbing else { return }
-                if playing { startFollowing(from: currentTime) } else { jump(to: currentTime) }
-            }
-            .onChange(of: currentTime) { _, time in
-                guard !isScrubbing else { return }
-                if isPlaying {
-                    // One long linear animation keeps the strip moving at display rate; only re-anchor on drift.
-                    let shown = Double(observedOffset / pointsPerSecond)
-                    if abs(shown - time) > Self.driftTolerance { startFollowing(from: time) }
-                } else {
-                    jump(to: time)
-                }
-            }
-            .overlay {
-                playhead
-            }
+            .overlay { playhead }
         }
         .frame(height: Self.frameHeight + 6 + lanesHeight)
     }
 
-    /// Scrolls at exactly playback speed from `time` to the end of the video.
-    private func startFollowing(from time: Double) {
-        jump(to: time)
-        let remaining = max(duration - time, 0)
-        guard remaining > 0 else { return }
-        withAnimation(.linear(duration: remaining)) {
-            position.scrollTo(x: contentWidth)
-        }
+    /// Player clock while playing, the drag position while scrubbing, otherwise the time the owner last set.
+    private var displayedTime: Double {
+        if isScrubbing { return scrubTime }
+        if isPlaying, let player { return player.currentTime().seconds }
+        return currentTime
     }
 
-    /// Moves the strip without animation, cancelling any follow animation in flight.
-    private func jump(to time: Double) {
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            position.scrollTo(x: CGFloat(time) * pointsPerSecond)
-        }
+    private var scrubGesture: some Gesture {
+        DragGesture(minimumDistance: 4)
+            .onChanged { value in
+                if dragStartTime == nil {
+                    dragStartTime = displayedTime
+                    scrubTime = displayedTime
+                    isScrubbing = true
+                }
+                let time = (dragStartTime ?? 0) - Double(value.translation.width / pointsPerSecond)
+                scrubTime = min(max(time, 0), duration)
+                onScrub(scrubTime)
+            }
+            .onEnded { _ in
+                dragStartTime = nil
+                isScrubbing = false
+            }
     }
 
     private var frameRow: some View {
@@ -124,12 +115,17 @@ struct TimelineStrip: View {
         VStack(alignment: .leading, spacing: Self.laneSpacing) {
             ForEach(characters) { character in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(.quaternary).frame(width: contentWidth, height: Self.laneHeight)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(.quaternary)
+                        .frame(width: contentWidth, height: Self.laneHeight)
                     ForEach(segments.filter { $0.characterID == character.id }, id: \.start) { segment in
-                        Capsule()
-                            .fill(CharacterPalette.color(character.colorIndex))
-                            .frame(width: max(CGFloat(segment.duration) * pointsPerSecond, 3), height: Self.laneHeight)
-                            .offset(x: CGFloat(segment.start) * pointsPerSecond)
+                        SegmentView(
+                            segment: segment,
+                            waveform: waveforms[segment.takeID],
+                            color: CharacterPalette.color(character.colorIndex),
+                            pointsPerSecond: pointsPerSecond
+                        )
+                        .offset(x: CGFloat(segment.start) * pointsPerSecond)
                     }
                 }
             }
@@ -153,5 +149,34 @@ struct TimelineStrip: View {
                 path.closeSubpath()
             }
         }
+    }
+}
+
+/// A take slice on its lane: a tinted block with the recording's waveform, so a silent take is obvious.
+private struct SegmentView: View {
+    let segment: AudioSegment
+    let waveform: Waveform?
+    let color: Color
+    let pointsPerSecond: CGFloat
+
+    var body: some View {
+        let width = max(CGFloat(segment.duration) * pointsPerSecond, 3)
+        RoundedRectangle(cornerRadius: 4)
+            .fill(color.opacity(0.35))
+            .frame(width: width, height: TimelineStrip.laneHeight)
+            .overlay {
+                if let waveform {
+                    Canvas { context, size in
+                        let count = Int(size.width / 2)
+                        let samples = waveform.levels(from: segment.sourceOffset, duration: segment.duration, count: count)
+                        for (index, level) in samples.enumerated() {
+                            let height = max(1, CGFloat(level) * size.height)
+                            let rect = CGRect(x: CGFloat(index) * 2, y: (size.height - height) / 2, width: 1.5, height: height)
+                            context.fill(Path(roundedRect: rect, cornerRadius: 0.75), with: .color(color))
+                        }
+                    }
+                    .clipShape(.rect(cornerRadius: 4))
+                }
+            }
     }
 }

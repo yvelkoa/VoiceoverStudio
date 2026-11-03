@@ -19,9 +19,11 @@ struct RecordingView: View {
                 video
                 characterChips
                 TimelineStrip(
+                    player: model.player,
                     frames: frames,
                     duration: model.videoDuration,
                     segments: model.project.segments,
+                    waveforms: model.project.waveforms,
                     characters: model.project.characters,
                     currentTime: currentTime,
                     isPlaying: isPlaying,
