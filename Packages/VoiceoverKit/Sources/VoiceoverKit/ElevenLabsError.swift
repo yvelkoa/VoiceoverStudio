@@ -4,6 +4,8 @@ import Foundation
 public enum ElevenLabsError: Error, Equatable, Sendable {
     case missingAPIKey
     case invalidAPIKey
+    /// The key is valid but wasn't granted the permission this endpoint needs; the message names it.
+    case missingPermission(String)
     case quotaExceeded
     case rateLimited
     case invalidRequest(String)
@@ -20,7 +22,7 @@ public enum ElevenLabsError: Error, Equatable, Sendable {
         case .missingAPIKey, .invalidAPIKey: .openSettings
         case .rateLimited, .server, .network: .retry
         case .invalidRequest: .editInput
-        case .quotaExceeded, .decoding: .none
+        case .missingPermission, .quotaExceeded, .decoding: .none
         }
     }
 
@@ -32,6 +34,8 @@ public enum ElevenLabsError: Error, Equatable, Sendable {
 
         switch (status, detail?.status) {
         case (_, "quota_exceeded"): return .quotaExceeded
+        case (_, "missing_permissions"):
+            return .missingPermission(detail?.message ?? "The API key is missing a permission this feature needs.")
         case (401, _), (_, "invalid_api_key"): return .invalidAPIKey
         case (429, _): return .rateLimited
         case (400, _), (422, _): return .invalidRequest(detail?.message ?? "The request was rejected.")
@@ -45,6 +49,8 @@ extension ElevenLabsError: LocalizedError {
         switch self {
         case .missingAPIKey: "Add your ElevenLabs API key to get started."
         case .invalidAPIKey: "Your API key was rejected. Check it in Settings."
+        case .missingPermission(let message):
+            message + " Edit the key's permissions at elevenlabs.io → Developers → API Keys."
         case .quotaExceeded: "You've used up your ElevenLabs credits for this period."
         case .rateLimited: "Too many requests right now. Try again in a moment."
         case .invalidRequest(let message): message

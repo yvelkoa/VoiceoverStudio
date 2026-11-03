@@ -90,6 +90,11 @@ struct ElevenLabsClientTests {
     @Test(arguments: [
         (401, #"{"detail":{"status":"invalid_api_key","message":"Invalid"}}"#, ElevenLabsError.invalidAPIKey),
         (401, #"{"detail":{"status":"quota_exceeded","message":"Out"}}"#, .quotaExceeded),
+        (
+            401,
+            #"{"detail":{"status":"missing_permissions","message":"Missing the permission speech_to_speech."}}"#,
+            .missingPermission("Missing the permission speech_to_speech.")
+        ),
         (429, #"{"detail":{"status":"too_many_concurrent_requests"}}"#, .rateLimited),
         (422, #"{"detail":[{"msg":"text is too long"}]}"#, .invalidRequest("text is too long")),
         (500, "oops", .server(status: 500)),

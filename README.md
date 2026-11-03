@@ -186,8 +186,9 @@ flowchart LR
 
 ## Run it
 
-1. Get an API key at elevenlabs.io → Developers → API Keys. The free tier is enough. Text to Speech, Voices and
-   Sound Effects permissions are all you need.
+1. Get an API key at elevenlabs.io → Developers → API Keys. The free tier is enough. Give the key these
+   permissions: Text to Speech, Speech to Speech (Voice Changer), Voices and Sound Effects. A key without one
+   of them gets a "missing permission" error naming it when that feature is used.
 2. `brew install xcodegen && xcodegen generate && open VoiceoverStudio.xcodeproj`
 3. Run on an iOS 26+ simulator or device, open Settings and paste the key. Pick the recording language
    there too if it differs from the device language.
