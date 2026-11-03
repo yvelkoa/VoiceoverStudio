@@ -52,7 +52,8 @@ nonisolated enum VoiceSwapper {
             settings: job.settings,
             removeBackgroundNoise: true
         )
-        try Task.checkCancellation()
+        // No cancellation check here: the response above has been billed, so it is written and reported
+        // even if the group is winding down. Cancellation stops the request itself, not the bookkeeping.
 
         let url = directory.appending(path: "swapped-\(job.take.id.uuidString).mp3")
         try converted.write(to: url)

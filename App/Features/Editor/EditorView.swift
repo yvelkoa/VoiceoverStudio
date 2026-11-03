@@ -25,7 +25,7 @@ struct EditorView: View {
                     scriptSection
                 case .record:
                     CharactersSection(project: model.project, client: model.client)
-                    TakesSection(project: model.project) { model.delete($0) }
+                    TakesSection(project: model.project, canEdit: !model.isBusy) { model.delete($0) }
                 }
                 if model.player != nil {
                     MixSection(project: model.project) { model.applyMix() }
@@ -111,6 +111,7 @@ struct EditorView: View {
                 Text("Type").tag(EditorModel.Mode.type)
             }
             .pickerStyle(.segmented)
+            .disabled(model.isBusy)
         } footer: {
             Text(model.mode == .record
                 ? "Speak over the video in your own voice, then swap it for an ElevenLabs voice."

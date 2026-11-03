@@ -29,7 +29,7 @@ App/
     ElevenLabs/  VoiceSwapper
   Features/
     Projects/    ProjectListView (root), ProjectRow, ProjectScreen (loads a project, owns its EditorModel)
-    Editor/      EditorView (+Helpers), EditorModel (+Recording, +Effects), Sections/
+    Editor/      EditorView (+Helpers), EditorModel (+Recording, +Effects, +Jobs), Sections/
     Recording/   RecordingView (full-screen recorder), EffectSheet, MixPopover, Timeline/{TimelineStrip, SegmentView}
     Preview/     PreviewScreen, PreviewPlayer, CaptionOverlay, PlayerLayerView, AVPlayer+TimeUpdates
     Settings/    SettingsView
@@ -84,10 +84,25 @@ Ready ──addEffect──▶ GeneratingEffect ──▶ Ready
 Ready ──generate (Type mode)──▶ Generating ──▶ Ready
 ```
 
-`EditorModel.activity` holds the current step; `run(_:_:)` wraps each step so that an `ElevenLabsError`
-turns into a `Failure` with a recovery (open settings / retry / edit input / none) and the retry closure
-repeats *only that step*. Composing is also an activity so the UI can show "Updating preview…" and disable
-buttons, but it is cheap and frequent.
+`EditorModel.activity` holds the current step; `run(_:slot:retry:operation:)` wraps each step so that an
+`ElevenLabsError` turns into a `Failure` with a recovery (open settings / retry / edit input / none) and the
+retry repeats *only that step*. Composing is also an activity so the UI can show "Updating preview…", but it
+is cheap and frequent.
+
+Work runs in one of two slots:
+
+- **compose** — `recompose()`. Restartable: a newer compose cancels an older one.
+- **job** — swap, export, generation, effect, Photos save. Spends credits or minutes, so nothing cancels it
+  except the user's Cancel button. `isBusy` is true while a job runs; edits that would change the composition
+  (delete a take, switch mode, remove an effect) are disabled in the UI and ignored by the model, and a
+  `recompose()` requested meanwhile is deferred until the job finishes.
+
+A job that needs the edit rebuilt at its end calls `compose(videoURL:)` directly rather than `recompose()`;
+the latter would cancel the job's own slot.
+
+`Failure.retry` re-enters the public method with plain values (`{ [weak self] in self?.export() }`), never the
+operation closure. A failure is stored on the model, so a retry that captured the operation would hold `self`
+through it and keep the editor alive after its screen was popped.
 
 ## Modes
 

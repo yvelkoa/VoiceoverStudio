@@ -16,8 +16,14 @@ final class EditorModel {
         let message: String
         let recovery: ElevenLabsError.Recovery
         /// Repeats exactly the step that failed (an export retry must not re-spend generation credits).
+        /// Built from a weak reference to the model and plain values only: a failure is stored on the model,
+        /// so a retry that captured the operation (and through it `self`) would keep the editor alive.
         var retry: (() -> Void)?
     }
+
+    /// Where a piece of work runs. Composing is cheap and restartable; a job spends credits or minutes.
+    /// Keeping them apart means a recompose can never cancel a swap or an export.
+    enum Slot { case compose, job }
 
     var mode: Mode {
         get { project.mode }
@@ -48,21 +54,25 @@ final class EditorModel {
     // Output
     /// Written by the model and its extensions; views only read it.
     var captions: [Caption] = []
-    private(set) var player: AVPlayer?
+    /// Written by the model and its extensions; views only read it.
+    var player: AVPlayer?
     var exportedURL: URL? { project.exportedURL }
     /// The current export has been added to the photo library.
-    private(set) var savedToPhotos = false
+    var savedToPhotos = false
     private(set) var activity: Activity?
     var failure: Failure?
 
     let client: ElevenLabsClient
 
-    private var speechFile: URL? { project.speechFile }
-    private var composed: ComposedVideo?
+    var speechFile: URL? { project.speechFile }
+    var composed: ComposedVideo?
     /// Thumbnails for the scrubber, decoded once per video; decoding 60 fps frames on every open stuttered.
     private(set) var frameStrip: CGImage?
     private var frameStripTask: Task<Void, Never>?
-    private var work: Task<Void, Never>?
+    private var composeTask: Task<Void, Never>?
+    private var jobTask: Task<Void, Never>?
+    /// A recompose was requested while a job ran; it happens when the job is done.
+    private var needsRecompose = false
     private var autosaver: ProjectAutosaver?
     var recordingStart: Double = 0
     var transcriptions: [Take.ID: Task<Void, Never>] = [:]
@@ -77,7 +87,8 @@ final class EditorModel {
     /// The editor is gone when the screen that owned it is popped: flush the last changes and stop playback.
     /// (Not onDisappear: that also fires when a picker is pushed on top, and must not cancel an export.)
     isolated deinit {
-        work?.cancel()
+        composeTask?.cancel()
+        jobTask?.cancel()
         frameStripTask?.cancel()
         for task in transcriptions.values { task.cancel() }
         player?.pause()
@@ -116,6 +127,10 @@ final class EditorModel {
 
     var isRecording: Bool { recorder.isRecording }
 
+    /// A swap, export, generation or save is running. Edits that change the composition wait until it is done,
+    /// so the job is never cancelled by accident (a cancelled swap has already been billed).
+    var isBusy: Bool { jobTask != nil }
+
     /// Something worth exporting: generated speech in Type mode, at least one take in Record mode.
     var hasResult: Bool {
         switch mode {
@@ -124,7 +139,7 @@ final class EditorModel {
         }
     }
 
-    private var trimmedScript: String { script.trimmingCharacters(in: .whitespacesAndNewlines) }
+    var trimmedScript: String { script.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     // MARK: - Video
 
@@ -142,6 +157,7 @@ final class EditorModel {
 
     /// Moves a picked video into the project folder and starts over with it.
     func setVideo(_ picked: URL) async {
+        guard !isBusy else { return }
         cancel()
         resetResult()
         frameStripTask?.cancel()
@@ -166,30 +182,18 @@ final class EditorModel {
         Task { try? await Thumbnail.write(for: destination, to: thumbnail) }
     }
 
-    // MARK: - Type mode
-
-    func generate() {
-        guard canGenerate, let videoURL, let voice else { return }
-        let script = trimmedScript
-        resetResult()
-
-        run(.generating) { [client, project] in
-            let generatedSpeech = try await client.speech(text: script, voiceID: voice.voiceID)
-            project.speechFile = try Self.write(generatedSpeech.audio, to: project.fileURL("speech", extension: "mp3"))
-            project.typeCaptions = CaptionBuilder.captions(from: generatedSpeech.alignment)
-            self.captions = project.typeCaptions
-            try await self.compose(videoURL: videoURL)
-        }
-    }
-
     // MARK: - Shared
 
-    /// Re-builds the edit after something moved; no network involved.
+    /// Re-builds the edit after something moved; no network involved. Deferred while a job runs.
     func recompose() {
         guard let videoURL else { return }
-        run(.composing) {
-            try await self.compose(videoURL: videoURL)
+        if isBusy {
+            needsRecompose = true
+            return
         }
+        run(.composing, slot: .compose, retry: { [weak self] in self?.recompose() }, operation: {
+            try await self.compose(videoURL: videoURL)
+        })
     }
 
     /// Pushes the project's mix levels onto the playing item without rebuilding anything.
@@ -198,63 +202,70 @@ final class EditorModel {
         player?.currentItem?.audioMix = composed.audioMix(project.mix)
     }
 
-    func export() {
-        guard let composed, hasResult else { return }
-        let captions = captions
-        let levels = project.mix
-        let range = project.isTrimmed ? project.trimRange : nil
-        let output = project.fileURL("export", extension: "mp4")
-        savedToPhotos = false
-        run(.exporting) { [project] in
-            project.clearExport()
-            project.exportedURL = try await VideoComposer.export(
-                composed, captions: captions, levels: levels, range: range, to: output
-            )
-            // Straight into the library: that is where the result is wanted.
-            try await PhotosSaver.save(output)
-            self.savedToPhotos = true
-        }
-    }
-
-    /// Adds the existing export to Photos again, e.g. after a relaunch or a denied permission.
-    func saveToPhotos() {
-        guard let url = exportedURL else { return }
-        run(.saving) {
-            try await PhotosSaver.save(url)
-            self.savedToPhotos = true
-        }
-    }
-
+    /// Stops whatever is running. The user asked for it, so a job's partial result is dropped on purpose.
     func cancel() {
-        work?.cancel()
-        work = nil
+        composeTask?.cancel()
+        composeTask = nil
+        jobTask?.cancel()
+        jobTask = nil
         activity = nil
+        if needsRecompose {
+            needsRecompose = false
+            recompose()
+        }
     }
 
     // MARK: - Private
 
-    func run(_ activity: Activity, _ operation: @escaping () async throws -> Void) {
-        work?.cancel()
+    /// Runs one step in its slot and reports a failure with `retry`, which must re-enter the public method
+    /// with values only (no captured operation), see `Failure.retry`.
+    func run(
+        _ activity: Activity,
+        slot: Slot = .job,
+        retry: (@MainActor () -> Void)? = nil,
+        operation: @escaping () async throws -> Void
+    ) {
+        switch slot {
+        case .compose: composeTask?.cancel()
+        case .job: jobTask?.cancel()
+        }
         self.activity = activity
-        work = Task {
+        let task = Task {
             do {
                 try await operation()
             } catch is CancellationError {
-                // The user cancelled or started something newer; nothing to report.
-            } catch let error as ElevenLabsError {
-                failure = Failure(message: error.localizedDescription, recovery: error.recovery) { [weak self] in
-                    self?.run(activity, operation)
-                }
+                // Cancelled or superseded; nothing to report.
             } catch {
-                failure = Failure(message: error.localizedDescription, recovery: .retry) { [weak self] in
-                    self?.run(activity, operation)
-                }
+                // AVFoundation and Photos report a cancelled task with their own errors; those are not failures.
+                guard !Task.isCancelled else { return }
+                let recovery = (error as? ElevenLabsError)?.recovery ?? .retry
+                failure = Failure(message: error.localizedDescription, recovery: recovery, retry: retry)
             }
-            if !Task.isCancelled { self.activity = nil }
+            if !Task.isCancelled { finish(slot) }
+        }
+        switch slot {
+        case .compose: composeTask = task
+        case .job: jobTask = task
         }
     }
 
-    private func compose(videoURL: URL) async throws {
+    private func finish(_ slot: Slot) {
+        activity = nil
+        switch slot {
+        case .compose:
+            composeTask = nil
+        case .job:
+            jobTask = nil
+            if needsRecompose {
+                needsRecompose = false
+                recompose()
+            }
+        }
+    }
+
+    /// Builds the edit and puts it on the player. Jobs call this directly at their end instead of
+    /// `recompose()`, which would cancel the job that is still running them.
+    func compose(videoURL: URL) async throws {
         let clips = voiceClips() + effectClips()
         let wasPlaying = player?.rate ?? 0 > 0
         let resumeAt = player?.currentTime()
@@ -305,19 +316,5 @@ final class EditorModel {
 
     private func effectClips() -> [AudioClip] {
         project.effects.map { AudioClip(url: $0.audio, kind: .effect, start: $0.start) }
-    }
-
-    private func resetResult() {
-        player?.pause()
-        player = nil
-        composed = nil
-        captions = []
-        project.clearTypeResult()
-        project.clearExport()
-    }
-
-    nonisolated static func write(_ data: Data, to url: URL) throws -> URL {
-        try data.write(to: url)
-        return url
     }
 }

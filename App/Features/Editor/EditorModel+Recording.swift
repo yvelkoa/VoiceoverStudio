@@ -48,6 +48,7 @@ extension EditorModel {
     }
 
     func delete(_ take: Take) {
+        guard !isBusy else { return }
         transcriptions[take.id]?.cancel()
         transcriptions[take.id] = nil
         project.remove(take)
@@ -87,7 +88,7 @@ extension EditorModel {
 
     /// Replaces the recorded voice of every unconverted take with its character's ElevenLabs voice.
     func swapVoices() {
-        guard canSwapVoices else { return }
+        guard canSwapVoices, let videoURL else { return }
         if let missing = project.charactersMissingVoice.first {
             failure = Failure(message: "Pick a voice for \(missing.name) first.", recovery: .editInput)
             return
@@ -96,11 +97,11 @@ extension EditorModel {
             guard let character = project.character(take.characterID), let voice = character.voice else { return nil }
             return VoiceSwapper.Job(take: take, voiceID: voice.voiceID, settings: character.settings)
         }
-        run(.swapping) { [client, project] in
+        run(.swapping, retry: { [weak self] in self?.swapVoices() }, operation: { [client, project] in
             try await VoiceSwapper.convert(jobs, client: client, into: project.folder) { outcome in
                 project.setConvertedAudio(outcome.audio, drift: outcome.drift, for: outcome.takeID)
             }
-            self.recompose()
-        }
+            try await self.compose(videoURL: videoURL)
+        })
     }
 }

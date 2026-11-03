@@ -66,6 +66,9 @@ created inside the function and nothing else holds it. No `@unchecked Sendable` 
   take lands, instead of after all of them.
 - `EditorModel.run` captures `[client, project]` explicitly where the operation runs off-actor to avoid
   capturing `self` into a `@Sendable` context by accident.
+- `Failure.retry` must not capture the operation closure: operations capture `self` strongly, the failure
+  lives on `self`, and the resulting cycle would defeat `isolated deinit` below. Retries are
+  `{ [weak self] in self?.method(values) }`.
 
 ## Observation
 
@@ -83,7 +86,15 @@ created inside the function and nothing else holds it. No `@unchecked Sendable` 
 is pushed, which cancelled running exports and stopped autosave. Now `EditorModel` has an
 `isolated deinit` (SE-0371, Swift 6.2) that runs on the main actor when `ProjectScreen` is popped and its
 `@State` releases the model: cancel tasks, pause the player, final save. Nothing else holds the model, so
-the lifetime is exactly the screen's.
+the lifetime is exactly the screen's. This only works while nothing on the model points back at it; see the
+rule for `Failure.retry` above.
+
+### Two task slots
+
+`EditorModel` keeps `composeTask` and `jobTask` apart. The first version had one `work` task that each `run`
+cancelled, which made a cheap `recompose()` after a deleted take cancel a running swap (already billed), and
+made `addEffect` cancel *itself* when it called `recompose()` at its end, so the effect's waveform load that
+followed saw a cancelled task and quietly returned nothing.
 
 ## Task priorities and deferral
 

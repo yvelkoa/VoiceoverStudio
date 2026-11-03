@@ -171,7 +171,7 @@ struct RecordingView: View {
                         scrub(to: last.start)
                     }
                 }
-                .disabled(model.isRecording || model.project.takes.isEmpty)
+                .disabled(model.isRecording || model.isBusy || model.project.takes.isEmpty)
                 Spacer()
                 transportButton(
                     "Add sound effect at playhead",

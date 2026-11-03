@@ -4,6 +4,8 @@ import VoiceoverKit
 /// Every take in timeline order, with who said it and when; swipe to delete.
 struct TakesSection: View {
     let project: Project
+    /// False while a swap or export runs: deleting a take then would have to throw that work away.
+    var canEdit = true
     let onDelete: (Take) -> Void
 
     var body: some View {
@@ -39,7 +41,9 @@ struct TakesSection: View {
                     }
                 }
                 .swipeActions {
-                    Button("Delete", systemImage: "trash", role: .destructive) { onDelete(take) }
+                    if canEdit {
+                        Button("Delete", systemImage: "trash", role: .destructive) { onDelete(take) }
+                    }
                 }
             }
         } header: {

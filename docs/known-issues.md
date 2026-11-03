@@ -18,8 +18,8 @@ Honest list for the next review. Each item says why it is still there.
 
 ## Shortcuts taken on purpose
 
-- `EditorModel` is split into `+Recording` and `+Effects` extensions with `internal` members to stay under
-  SwiftLint's type-length limit. A cleaner split would be separate coordinator objects (recording session,
+- `EditorModel` is split into `+Recording`, `+Effects` and `+Jobs` extensions with `internal` members to stay
+  under SwiftLint's type-length limit. A cleaner split would be separate coordinator objects (recording session,
   swap job, export job) owned by the model.
 - `Project` deletes files itself. Keeps manifest and folder in step, but mixes model and filesystem; a
   `ProjectFiles` helper would be the next step.
@@ -52,3 +52,7 @@ Honest list for the next review. Each item says why it is still there.
 7. Shell: a `;` after a failing build still runs the commit. Use a script with `set -e`.
 8. Anything the autosaver tracks must not be written by the save itself (`updatedAt` write-back looped
    every 600 ms).
+9. One task slot for everything means a cheap step cancels an expensive one, and a step that re-enters
+   `run` cancels itself. Keep compose and jobs in separate slots; call `compose` directly from a job.
+10. A retry closure stored on the model must not capture the operation; it captures `self` and the model
+    never deinits.

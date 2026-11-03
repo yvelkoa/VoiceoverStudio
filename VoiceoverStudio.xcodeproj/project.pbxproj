@@ -40,6 +40,7 @@
 		7DCA0A23BA22A9D71C6C0870 /* VoiceoverStudioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8063C9726FFBC19DE0B3ACC /* VoiceoverStudioApp.swift */; };
 		82169766EBE539D363CCC0C9 /* MixPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B760C0DC74AD6336EA3C76D /* MixPopover.swift */; };
 		8244A9D23DB67A2AD09CBA34 /* Transcriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8B66A3A59071DA5F86EC9C /* Transcriber.swift */; };
+		8265302A5CD4C0101E1FE67F /* EditorModel+Jobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3946F361F397BB49B0E99239 /* EditorModel+Jobs.swift */; };
 		83803121B54F1EAF56B45D2E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0D71BB5705F8BDB7ABF9FB06 /* Assets.xcassets */; };
 		8BEFE37FC863CAE19E49F427 /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B406D41D1C09D5729D6DCB2 /* EditorView.swift */; };
 		8EB5960C73DC60FAC34CB16C /* VoicePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8050AF81B0DA33C21552A7BA /* VoicePickerView.swift */; };
@@ -74,6 +75,7 @@
 		2AC60669C34950EDC6F2C0BA /* LiveRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveRecording.swift; sourceTree = "<group>"; };
 		33C9106D63BEF1AB64B06299 /* EditorModel+Recording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorModel+Recording.swift"; sourceTree = "<group>"; };
 		366393B17A56CF222EF9179E /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
+		3946F361F397BB49B0E99239 /* EditorModel+Jobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorModel+Jobs.swift"; sourceTree = "<group>"; };
 		3B760C0DC74AD6336EA3C76D /* MixPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MixPopover.swift; sourceTree = "<group>"; };
 		416C0DD9AB2212A306BA60F4 /* ProjectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStore.swift; sourceTree = "<group>"; };
 		428C57A4F7AEA0E3B942563C /* AudioSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSession.swift; sourceTree = "<group>"; };
@@ -315,6 +317,7 @@
 			children = (
 				EB28000AFE90E49A39327B1B /* EditorModel.swift */,
 				9EECA9CB4A47C63BD845F2A2 /* EditorModel+Effects.swift */,
+				3946F361F397BB49B0E99239 /* EditorModel+Jobs.swift */,
 				33C9106D63BEF1AB64B06299 /* EditorModel+Recording.swift */,
 				7B406D41D1C09D5729D6DCB2 /* EditorView.swift */,
 				D62BAC0741CD950254F2526E /* EditorView+Helpers.swift */,
@@ -458,6 +461,7 @@
 				F6F86CBDDE0806B94172EC06 /* ComposedVideo.swift in Sources */,
 				6151A5AA65059FA89385282C /* EditingMode.swift in Sources */,
 				279EFF3529A98DA62B16BAAE /* EditorModel+Effects.swift in Sources */,
+				8265302A5CD4C0101E1FE67F /* EditorModel+Jobs.swift in Sources */,
 				358F6D2191F51445EE8A8B23 /* EditorModel+Recording.swift in Sources */,
 				761D2B563513BD5C5F089E91 /* EditorModel.swift in Sources */,
 				4A1B7DEF94445A80237F74CD /* EditorView+Helpers.swift in Sources */,
