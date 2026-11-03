@@ -52,14 +52,20 @@ private struct CharacterRow: View {
             .accessibilityLabel(project.activeCharacterID == character.id ? "Active" : "Make active")
 
             TextField("Name", text: nameBinding)
+                .frame(maxWidth: .infinity)
 
+            // The voice name can be long ("Adam - Dominant, Firm"); it yields to the name field and truncates.
             NavigationLink {
                 VoicePickerView(client: client, selection: voiceBinding)
             } label: {
                 Text(character.voice?.name ?? "Voice")
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                     .foregroundStyle(character.voice == nil ? .secondary : .primary)
+                    .frame(maxWidth: 150, alignment: .trailing)
             }
-            .fixedSize()
+            .fixedSize(horizontal: true, vertical: false)
+            .layoutPriority(-1)
         }
     }
 

@@ -12,6 +12,9 @@ extension EditorView {
             defer { isLoadingVideo = false }
             do {
                 if let movie = try await item.loadTransferable(type: PickedMovie.self) {
+                    // Let the picker finish its dismiss animation before the form re-lays out around the video.
+                    try? await Task.sleep(for: .milliseconds(450))
+                    withAnimation { isLoadingVideo = false }
                     await model.setVideo(movie.url)
                 }
             } catch {

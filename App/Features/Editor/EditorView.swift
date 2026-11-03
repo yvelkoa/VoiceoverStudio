@@ -31,6 +31,7 @@ struct EditorView: View {
                 }
                 resultSection
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Voiceover Studio")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
