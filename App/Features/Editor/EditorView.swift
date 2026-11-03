@@ -162,9 +162,17 @@ struct EditorView: View {
                 if !model.hasResult {
                     EmptyView()
                 } else if let url = model.exportedURL {
-                    ShareLink(item: url) {
-                        Label("Share or save video", systemImage: "square.and.arrow.up")
+                    if model.savedToPhotos {
+                        Label("Saved to Photos", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    } else {
+                        Button("Save to Photos", systemImage: "photo.badge.plus") { model.saveToPhotos() }
+                            .disabled(model.activity != nil)
                     }
+                    ShareLink(item: url) {
+                        Label("Share…", systemImage: "square.and.arrow.up")
+                    }
+                    Button("Export again", systemImage: "arrow.clockwise") { model.export() }
+                        .disabled(model.activity != nil)
                 } else {
                     Button("Export with captions", systemImage: "square.and.arrow.down") { model.export() }
                         .disabled(model.activity != nil)
@@ -255,6 +263,7 @@ struct EditorView: View {
         case .composing: "Updating preview…"
         case .exporting: "Exporting…"
         case .swapping: "Swapping voices…"
+        case .saving: "Saving to Photos…"
         }
     }
 }

@@ -36,12 +36,14 @@
 		E612B5574346C96AA8714A0A /* PreviewPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02D594451504A9EC3C5C3569 /* PreviewPlayer.swift */; };
 		E93412C245DF476E76A102F5 /* Transcriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3CDD8C91E0047AC8ACD79A3 /* Transcriber.swift */; };
 		EC2C46E7BE507EAF852F1FF9 /* TimelineStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEEE14B7086705836E8DF262 /* TimelineStrip.swift */; };
+		F91257918EA84B5D4E03E4EC /* PhotosSaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B7F7A7A60657A4566CEE4CC /* PhotosSaver.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		02D594451504A9EC3C5C3569 /* PreviewPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewPlayer.swift; sourceTree = "<group>"; };
 		0D71BB5705F8BDB7ABF9FB06 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		16C768AA28EE4539A4F01172 /* FrameStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameStrip.swift; sourceTree = "<group>"; };
+		2B7F7A7A60657A4566CEE4CC /* PhotosSaver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotosSaver.swift; sourceTree = "<group>"; };
 		33C9106D63BEF1AB64B06299 /* EditorModel+Recording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorModel+Recording.swift"; sourceTree = "<group>"; };
 		366393B17A56CF222EF9179E /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		3CA4EF7668BB4B972F3DFF76 /* PlayerLayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerLayerView.swift; sourceTree = "<group>"; };
@@ -183,6 +185,7 @@
 			isa = PBXGroup;
 			children = (
 				16C768AA28EE4539A4F01172 /* FrameStrip.swift */,
+				2B7F7A7A60657A4566CEE4CC /* PhotosSaver.swift */,
 				6703BCA694A4E80A45435583 /* PickedMovie.swift */,
 				A20F095079C99E0F7083EF59 /* TakeRecorder.swift */,
 				45A10EB7C504070CE2E2D739 /* Thumbnail.swift */,
@@ -308,6 +311,7 @@
 				4A1B7DEF94445A80237F74CD /* EditorView+Helpers.swift in Sources */,
 				8BEFE37FC863CAE19E49F427 /* EditorView.swift in Sources */,
 				2B4D16083957E0627486C8F7 /* FrameStrip.swift in Sources */,
+				F91257918EA84B5D4E03E4EC /* PhotosSaver.swift in Sources */,
 				1D514E48379FA4047B254C14 /* PickedMovie.swift in Sources */,
 				312818AF50435F783C381A30 /* PlayerLayerView.swift in Sources */,
 				E612B5574346C96AA8714A0A /* PreviewPlayer.swift in Sources */,

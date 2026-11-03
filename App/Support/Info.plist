@@ -22,6 +22,8 @@
 	<string>1</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Voiceover Studio records your voice to lay it over the video.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Voiceover Studio saves your exported videos to your photo library.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Speech recognition turns your takes into captions.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

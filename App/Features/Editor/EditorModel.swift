@@ -8,7 +8,7 @@ final class EditorModel {
     typealias Mode = EditingMode
 
     enum Activity: Equatable {
-        case generating, generatingEffect, composing, exporting, swapping
+        case generating, generatingEffect, composing, exporting, swapping, saving
     }
 
     struct Failure: Identifiable {
@@ -50,6 +50,8 @@ final class EditorModel {
     var captions: [Caption] = []
     private(set) var player: AVPlayer?
     var exportedURL: URL? { project.exportedURL }
+    /// The current export has been added to the photo library.
+    private(set) var savedToPhotos = false
     private(set) var activity: Activity?
     var failure: Failure?
 
@@ -181,11 +183,24 @@ final class EditorModel {
         let levels = project.mix
         let range = project.isTrimmed ? project.trimRange : nil
         let output = project.fileURL("export", extension: "mp4")
+        savedToPhotos = false
         run(.exporting) { [project] in
             project.clearExport()
             project.exportedURL = try await VideoComposer.export(
                 composed, captions: captions, levels: levels, range: range, to: output
             )
+            // Straight into the library: that is where the result is wanted.
+            try await PhotosSaver.save(output)
+            self.savedToPhotos = true
+        }
+    }
+
+    /// Adds the existing export to Photos again, e.g. after a relaunch or a denied permission.
+    func saveToPhotos() {
+        guard let url = exportedURL else { return }
+        run(.saving) {
+            try await PhotosSaver.save(url)
+            self.savedToPhotos = true
         }
     }
 
@@ -235,6 +250,7 @@ final class EditorModel {
         item.audioMix = composed.audioMix(levels)
         self.composed = composed
         project.clearExport()
+        savedToPhotos = false
         if let player {
             player.replaceCurrentItem(with: item)
             if let resumeAt { await player.seek(to: resumeAt) }

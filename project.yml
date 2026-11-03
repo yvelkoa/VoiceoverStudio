@@ -37,6 +37,7 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSMicrophoneUsageDescription: Voiceover Studio records your voice to lay it over the video.
         NSSpeechRecognitionUsageDescription: Speech recognition turns your takes into captions.
+        NSPhotoLibraryAddUsageDescription: Voiceover Studio saves your exported videos to your photo library.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: beav.dev.VoiceoverStudio
