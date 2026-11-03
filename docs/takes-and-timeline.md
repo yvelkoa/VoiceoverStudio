@@ -63,7 +63,9 @@ Details that cost time to learn:
   forever; `start(inputAudioFile:finishAfterFile: true)` ends the stream. Verified with synthesized speech.
 - Word times come from the `audioTimeRange` run attribute of the result's `AttributedString`.
 - `SFSpeechRecognizer` results are converted to `[TimedWord]` *inside* the callback because `SFTranscription`
-  is not `Sendable`; a lock-guarded `ResumeOnce` guards the continuation against a second callback.
+  is not `Sendable`; a lock-guarded `ResumeOnce` guards the continuation against a second callback, and a
+  `withTaskCancellationHandler` cancels the `SFSpeechRecognitionTask` when the Swift task is cancelled
+  (deleted take, closed editor); otherwise the request kept streaming to the server for up to a minute.
 
 The recording language is a setting (`RecordingLanguage`, UserDefaults), defaulting to the device locale.
 

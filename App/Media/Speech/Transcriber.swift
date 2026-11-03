@@ -93,18 +93,47 @@ nonisolated enum Transcriber {
         request.shouldReportPartialResults = false
         request.taskHint = .dictation
 
-        return try await withCheckedThrowingContinuation { continuation in
-            let once = ResumeOnce(continuation)
-            recognizer.recognitionTask(with: request) { result, error in
-                if let error {
-                    once.resume(.failure(error))
-                } else if let result, result.isFinal {
-                    // Converted inside the callback: SFTranscription itself isn't Sendable.
-                    let words = result.bestTranscription.segments.map {
-                        TimedWord(text: $0.substring, start: $0.timestamp, end: $0.timestamp + $0.duration)
+        // The recognition task keeps streaming audio to the server until it is told to stop. A deleted take
+        // or a closed editor cancels the Swift task; the handler passes that on so the request ends too.
+        let holder = TaskHolder()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let once = ResumeOnce(continuation)
+                let task = recognizer.recognitionTask(with: request) { result, error in
+                    if let error {
+                        once.resume(.failure(error))
+                    } else if let result, result.isFinal {
+                        // Converted inside the callback: SFTranscription itself isn't Sendable.
+                        let words = result.bestTranscription.segments.map {
+                            TimedWord(text: $0.substring, start: $0.timestamp, end: $0.timestamp + $0.duration)
+                        }
+                        once.resume(.success(words))
                     }
-                    once.resume(.success(words))
                 }
+                holder.set(task)
+            }
+        } onCancel: {
+            holder.cancel()
+        }
+    }
+
+    /// Hands the recognition task to the cancellation handler; `cancel` may arrive before or after `set`.
+    private final class TaskHolder: @unchecked Sendable {
+        private let lock = NSLock()
+        private var task: SFSpeechRecognitionTask?
+        private var cancelled = false
+
+        func set(_ task: SFSpeechRecognitionTask) {
+            lock.withLock {
+                self.task = task
+                if cancelled { task.cancel() }
+            }
+        }
+
+        func cancel() {
+            lock.withLock {
+                cancelled = true
+                task?.cancel()
             }
         }
     }
