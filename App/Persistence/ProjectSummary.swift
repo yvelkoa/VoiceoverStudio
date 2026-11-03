@@ -11,8 +11,11 @@ nonisolated struct ProjectSummary: Identifiable, Equatable {
     let hasVideo: Bool
     let isExported: Bool
     let thumbnail: URL?
+    /// False when the folder has a manifest that no longer decodes. Shown, not hidden: the media is still there.
+    let isReadable: Bool
 
     init(document: ProjectDocument, folder: URL) {
+        isReadable = true
         id = document.id
         title = document.title
         updatedAt = document.updatedAt
@@ -22,5 +25,17 @@ nonisolated struct ProjectSummary: Identifiable, Equatable {
         isExported = document.exportFile != nil
         let thumb = folder.appending(path: ProjectDocument.thumbnailName)
         thumbnail = FileManager.default.fileExists(atPath: thumb.path) ? thumb : nil
+    }
+
+    init(unreadableFolder folder: URL, id: UUID) {
+        isReadable = false
+        self.id = id
+        title = "Unreadable project"
+        updatedAt = (try? folder.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+        videoDuration = 0
+        takeCount = 0
+        hasVideo = false
+        isExported = false
+        thumbnail = nil
     }
 }

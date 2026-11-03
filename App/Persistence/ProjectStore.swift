@@ -17,12 +17,17 @@ final class ProjectStore {
         root.appending(path: id.uuidString)
     }
 
-    /// Re-reads every manifest; cheap, they are small.
+    /// Re-reads every manifest; cheap, they are small. A manifest that exists but does not decode still gets
+    /// a row, so a format mistake shows up as "unreadable" rather than as a vanished project.
     func refresh() {
         let folders = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
         summaries = folders
-            .compactMap { folder in
-                (try? readDocument(in: folder)).map { ProjectSummary(document: $0, folder: folder) }
+            .compactMap { folder -> ProjectSummary? in
+                guard let id = UUID(uuidString: folder.lastPathComponent) else { return nil }
+                if let document = try? readDocument(in: folder) { return ProjectSummary(document: document, folder: folder) }
+                let manifest = folder.appending(path: ProjectDocument.fileName)
+                guard FileManager.default.fileExists(atPath: manifest.path) else { return nil }
+                return ProjectSummary(unreadableFolder: folder, id: id)
             }
             .sorted { $0.updatedAt > $1.updatedAt }
     }

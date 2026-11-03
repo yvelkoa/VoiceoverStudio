@@ -6,6 +6,9 @@ import VoiceoverKit
 nonisolated struct ProjectDocument: Codable {
     static let fileName = "project.json"
     static let thumbnailName = "thumbnail.jpg"
+    /// Bump when a change cannot be expressed as a new optional field. Decoding reads it through
+    /// `decodeIfPresent`, so manifests written before the field existed count as version 1.
+    static let currentVersion = 1
 
     struct TakeRecord: Codable {
         var id: UUID
@@ -24,6 +27,7 @@ nonisolated struct ProjectDocument: Codable {
         var file: String
     }
 
+    var version = currentVersion
     var id: UUID
     var title: String
     var createdAt: Date
@@ -53,4 +57,36 @@ nonisolated struct ProjectDocument: Codable {
     var typeCaptions: [Caption]
 
     var exportFile: String?
+}
+
+/// Hand-written so that fields added later can default instead of failing the whole manifest. A project the
+/// list cannot decode looks deleted to the user; every new field must be `decodeIfPresent` with a default.
+nonisolated extension ProjectDocument {
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+        videoFile = try c.decodeIfPresent(String.self, forKey: .videoFile)
+        videoDuration = try c.decodeIfPresent(Double.self, forKey: .videoDuration) ?? 0
+        mode = try c.decodeIfPresent(EditingMode.self, forKey: .mode) ?? .record
+        characters = try c.decodeIfPresent([Character].self, forKey: .characters) ?? []
+        activeCharacterID = try c.decodeIfPresent(UUID.self, forKey: .activeCharacterID)
+        takes = try c.decodeIfPresent([TakeRecord].self, forKey: .takes) ?? []
+        nextSequence = try c.decodeIfPresent(Int.self, forKey: .nextSequence) ?? (takes.map(\.sequence).max() ?? 0)
+        transcripts = try c.decodeIfPresent([String: [TimedWord]].self, forKey: .transcripts) ?? [:]
+        convertedAudio = try c.decodeIfPresent([String: String].self, forKey: .convertedAudio) ?? [:]
+        conversionDrift = try c.decodeIfPresent([String: Double].self, forKey: .conversionDrift) ?? [:]
+        effects = try c.decodeIfPresent([EffectRecord].self, forKey: .effects) ?? []
+        mix = try c.decodeIfPresent(MixLevels.self, forKey: .mix) ?? MixLevels()
+        trimStart = try c.decodeIfPresent(Double.self, forKey: .trimStart)
+        trimEnd = try c.decodeIfPresent(Double.self, forKey: .trimEnd)
+        script = try c.decodeIfPresent(String.self, forKey: .script) ?? ""
+        voice = try c.decodeIfPresent(Voice.self, forKey: .voice)
+        speechFile = try c.decodeIfPresent(String.self, forKey: .speechFile)
+        typeCaptions = try c.decodeIfPresent([Caption].self, forKey: .typeCaptions) ?? []
+        exportFile = try c.decodeIfPresent(String.self, forKey: .exportFile)
+    }
 }

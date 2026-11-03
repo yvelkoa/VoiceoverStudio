@@ -28,7 +28,13 @@ launches and updates.
 ## Manifest (`ProjectDocument`)
 
 A `nonisolated` `Codable` struct that mirrors `Project` with file names instead of URLs and `uuidString`
-keys for the dictionaries (readable JSON; `[UUID: T]` would encode as a flat array). `Voice`, `Character`,
+keys for the dictionaries (readable JSON; `[UUID: T]` would encode as a flat array). It carries a `version`
+(`ProjectDocument.currentVersion`, now 1) and a hand-written `init(from:)` in which **every field except
+`id`, `title` and the dates is `decodeIfPresent` with a default**. The rule for changes: a new field is
+optional or defaulted and needs no version bump; only a change that cannot be expressed that way bumps the
+version and gets a migration branch in `init(from:)`. A manifest the list cannot decode looks like a deleted
+project to the user, so `ProjectStore.refresh()` shows such a folder as an "Unreadable project" row (with
+delete) rather than skipping it. `Voice`, `Character`,
 `VoiceSettings`, `TimedWord`, `Caption`, `MixLevels` are `Codable` in the kit/app. Dates are ISO 8601,
 output is pretty-printed with sorted keys, writes are atomic.
 

@@ -22,7 +22,9 @@ Declared with `nonisolated` on the type:
 - **Value types that cross isolation**: `AudioClip`, `AudioKind`, `MixLevels`, `ComposedVideo`,
   `ProjectDocument`, `ProjectSummary`, `EditingMode`, `Waveform`, `APIKeyStore`, `PickedMovie`. Without
   `nonisolated` a struct is main-actor isolated and its `Codable` conformance can't be used from a
-  background decode (`ProjectStore.loadInBackground` hit exactly that error).
+  background decode (`ProjectStore.loadInBackground` hit exactly that error). The same applies to each
+  `extension` of such a type: the default isolation is per declaration, so an extension holding
+  `init(from:)` must say `nonisolated` again or the conformance "crosses into main actor-isolated code".
 - **Workers with no state**: `VideoComposer`, `VoiceSwapper`, `Transcriber`, `FrameStrip`, `Thumbnail`,
   `PhotosSaver`. They are `enum`s with static functions, so there is no instance to protect.
 
