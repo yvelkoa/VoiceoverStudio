@@ -3,13 +3,15 @@ import UIKit
 import VoiceoverKit
 
 /// Everything needed to both preview (AVPlayer) and export (AVAssetExportSession) the same edit.
-struct ComposedVideo {
+nonisolated struct ComposedVideo {
     let composition: AVMutableComposition
     let audioMix: AVMutableAudioMix
     let videoComposition: AVMutableVideoComposition
 }
 
-enum VideoComposer {
+/// Off the main actor: AVFoundation's async APIs take the (non-Sendable) composition across an isolation
+/// boundary, which strict concurrency rejects from a main-actor context.
+nonisolated enum VideoComposer {
     enum Failure: LocalizedError {
         case noVideoTrack, exportUnavailable
 
@@ -26,7 +28,9 @@ enum VideoComposer {
 
     /// Lays the voice (and optional sound effect) over the picked video.
     /// The edit always keeps the video's length; audio that runs past the end is trimmed.
-    static func compose(video: URL, voice: URL, effect: URL?, effectStart: Double) async throws -> ComposedVideo {
+    /// Runs on the cooperative pool; the result is freshly built, so it can be sent back to the caller.
+    @concurrent
+    static func compose(video: URL, voice: URL, effect: URL?, effectStart: Double) async throws -> sending ComposedVideo {
         let asset = AVURLAsset(url: video)
         let duration = try await asset.load(.duration)
         guard let sourceVideo = try await asset.loadTracks(withMediaType: .video).first else {
