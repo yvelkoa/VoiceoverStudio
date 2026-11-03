@@ -12,6 +12,8 @@ struct TimelineStrip: View {
     let duration: Double
     let segments: [AudioSegment]
     let waveforms: [Take.ID: Waveform]
+    /// A take in progress, drawn in full colour and growing as the level comes in.
+    let liveRecording: LiveRecording?
     let characters: [Character]
     /// The time to show when the player is not running (after a seek, a stop, or on first appearance).
     let currentTime: Double
@@ -127,6 +129,19 @@ struct TimelineStrip: View {
                         )
                         .offset(x: CGFloat(segment.start) * pointsPerSecond)
                     }
+                    if let live = liveRecording, live.characterID == character.id {
+                        let elapsed = Double(live.waveform.peaks.count) * Waveform.bucket
+                        SegmentView(
+                            segment: AudioSegment(
+                                takeID: UUID(), characterID: character.id, start: live.start, sourceOffset: 0, duration: elapsed
+                            ),
+                            waveform: live.waveform,
+                            color: CharacterPalette.color(character.colorIndex),
+                            pointsPerSecond: pointsPerSecond,
+                            isLive: true
+                        )
+                        .offset(x: CGFloat(live.start) * pointsPerSecond)
+                    }
                 }
             }
         }
@@ -158,11 +173,12 @@ private struct SegmentView: View {
     let waveform: Waveform?
     let color: Color
     let pointsPerSecond: CGFloat
+    var isLive = false
 
     var body: some View {
         let width = max(CGFloat(segment.duration) * pointsPerSecond, 3)
         RoundedRectangle(cornerRadius: 4)
-            .fill(color.opacity(0.35))
+            .fill(color.opacity(isLive ? 0.6 : 0.35))
             .frame(width: width, height: TimelineStrip.laneHeight)
             .overlay {
                 if let waveform {
@@ -172,7 +188,7 @@ private struct SegmentView: View {
                         for (index, level) in samples.enumerated() {
                             let height = max(1, CGFloat(level) * size.height)
                             let rect = CGRect(x: CGFloat(index) * 2, y: (size.height - height) / 2, width: 1.5, height: height)
-                            context.fill(Path(roundedRect: rect, cornerRadius: 0.75), with: .color(color))
+                            context.fill(Path(roundedRect: rect, cornerRadius: 0.75), with: .color(isLive ? .white : color))
                         }
                     }
                     .clipShape(.rect(cornerRadius: 4))

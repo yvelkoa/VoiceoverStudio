@@ -24,6 +24,7 @@ struct RecordingView: View {
                     duration: model.videoDuration,
                     segments: model.project.segments,
                     waveforms: model.project.waveforms,
+                    liveRecording: model.liveRecording,
                     characters: model.project.characters,
                     currentTime: currentTime,
                     isPlaying: isPlaying,
@@ -127,7 +128,10 @@ struct RecordingView: View {
             .accessibilityLabel(model.isRecording ? "Stop recording" : "Record")
 
             Button {
-                if let last = model.project.takes.max(by: { $0.sequence < $1.sequence }) { model.delete(last) }
+                if let last = model.project.takes.max(by: { $0.sequence < $1.sequence }) {
+                    model.delete(last)
+                    scrub(to: last.start)
+                }
             } label: {
                 Image(systemName: "arrow.uturn.backward")
                     .font(.title2)

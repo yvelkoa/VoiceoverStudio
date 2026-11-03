@@ -2,8 +2,21 @@ import AVFoundation
 import Foundation
 import VoiceoverKit
 
+/// A take in progress: who is speaking, from where on the timeline, and the input level so far.
+struct LiveRecording {
+    let characterID: Character.ID
+    let start: Double
+    let waveform: Waveform
+}
+
 // Record mode: punch-in takes, transcription for captions and the voice swap.
 extension EditorModel {
+
+    /// The take being recorded right now, for the timeline.
+    var liveRecording: LiveRecording? {
+        guard isRecording, let character = project.activeCharacter else { return nil }
+        return LiveRecording(characterID: character.id, start: recordingStart, waveform: Waveform(peaks: recorder.liveLevels))
+    }
 
     func startRecording() {
         guard canRecord, let player else { return }
