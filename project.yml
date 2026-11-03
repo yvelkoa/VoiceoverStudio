@@ -1,6 +1,6 @@
 name: VoiceoverStudio
 options:
-  bundleIdPrefix: dev.velko
+  bundleIdPrefix: beav.dev
   deploymentTarget:
     iOS: "26.0"
   createIntermediateGroups: true
@@ -36,7 +36,8 @@ targets:
         NSSpeechRecognitionUsageDescription: Speech recognition turns your takes into captions.
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.velko.VoiceoverStudio
+        PRODUCT_BUNDLE_IDENTIFIER: beav.dev.VoiceoverStudio
+        DEVELOPMENT_TEAM: 9ZDSY6TDMN
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         ENABLE_PREVIEWS: YES

@@ -212,6 +212,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					B4631450C50E5E2102D06D62 = {
+						DevelopmentTeam = 9ZDSY6TDMN;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -342,13 +343,14 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9ZDSY6TDMN;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = App/Support/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = dev.velko.VoiceoverStudio;
+				PRODUCT_BUNDLE_IDENTIFIER = beav.dev.VoiceoverStudio;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -419,13 +421,14 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9ZDSY6TDMN;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = App/Support/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = dev.velko.VoiceoverStudio;
+				PRODUCT_BUNDLE_IDENTIFIER = beav.dev.VoiceoverStudio;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
