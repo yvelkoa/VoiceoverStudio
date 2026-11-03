@@ -16,6 +16,8 @@ final class Project {
     private(set) var transcripts: [Take.ID: [TimedWord]] = [:]
     /// The same take spoken by the character's ElevenLabs voice.
     private(set) var convertedAudio: [Take.ID: URL] = [:]
+    /// Seconds the converted audio is longer (or shorter) than the recording. Large values desync captions.
+    private(set) var conversionDrift: [Take.ID: Double] = [:]
 
     var effectPrompt = ""
     var effectStart: Double = 0
@@ -46,6 +48,7 @@ final class Project {
         takes.removeAll()
         transcripts.removeAll()
         convertedAudio.removeAll()
+        conversionDrift.removeAll()
     }
 
     // MARK: - Characters
@@ -67,6 +70,7 @@ final class Project {
             // The converted audio was made with the old voice; it has to be redone.
             for take in takes where take.characterID == character.id {
                 convertedAudio[take.id] = nil
+                conversionDrift[take.id] = nil
             }
         }
     }
@@ -92,6 +96,7 @@ final class Project {
         takes.removeAll { $0.id == take.id }
         transcripts[take.id] = nil
         convertedAudio[take.id] = nil
+        conversionDrift[take.id] = nil
         try? FileManager.default.removeItem(at: take.recording)
     }
 
@@ -100,9 +105,17 @@ final class Project {
         transcripts[takeID] = words
     }
 
-    func setConvertedAudio(_ url: URL, for takeID: Take.ID) {
+    func setConvertedAudio(_ url: URL, drift: Double, for takeID: Take.ID) {
         guard takes.contains(where: { $0.id == takeID }) else { return }
         convertedAudio[takeID] = url
+        conversionDrift[takeID] = drift
+    }
+
+    /// Characters that have takes but no voice yet; a swap can't start until they do.
+    var charactersMissingVoice: [Character] {
+        characters.filter { character in
+            character.voice == nil && takes.contains { $0.characterID == character.id }
+        }
     }
 
     /// Takes whose converted audio is missing or stale.

@@ -110,9 +110,17 @@ struct TakesSection: View {
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                     if project.convertedAudio[take.id] != nil {
-                        Image(systemName: "waveform.badge.checkmark")
-                            .foregroundStyle(.green)
-                            .accessibilityLabel("Voice swapped")
+                        let drift = project.conversionDrift[take.id] ?? 0
+                        if abs(drift) > 0.15 {
+                            let seconds = drift.formatted(.number.precision(.fractionLength(1)))
+                            Image(systemName: "waveform.badge.exclamationmark")
+                                .foregroundStyle(.orange)
+                                .accessibilityLabel("Voice swapped, timing off by \(seconds) seconds")
+                        } else {
+                            Image(systemName: "waveform.badge.checkmark")
+                                .foregroundStyle(.green)
+                                .accessibilityLabel("Voice swapped")
+                        }
                     }
                 }
                 .swipeActions {
@@ -121,6 +129,10 @@ struct TakesSection: View {
             }
         } header: {
             Text("Takes")
+        } footer: {
+            if project.conversionDrift.values.contains(where: { abs($0) > 0.15 }) {
+                Text("An orange mark means the swapped voice came back a different length, so captions may drift there.")
+            }
         }
     }
 

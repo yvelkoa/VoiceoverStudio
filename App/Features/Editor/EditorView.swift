@@ -179,15 +179,27 @@ struct EditorView: View {
             } else {
                 switch model.mode {
                 case .record:
-                    Button {
-                        model.startRecording()
-                    } label: {
-                        Label(recordTitle, systemImage: "record.circle").frame(maxWidth: .infinity)
+                    HStack(spacing: 12) {
+                        Button {
+                            model.startRecording()
+                        } label: {
+                            Label(recordTitle, systemImage: "record.circle").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                        .disabled(!model.canRecord)
+
+                        if model.canSwapVoices {
+                            Button {
+                                model.swapVoices()
+                            } label: {
+                                Label(swapTitle, systemImage: "arrow.triangle.2.circlepath")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(!app.hasAPIKey)
+                        }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
                     .controlSize(.large)
-                    .disabled(!model.canRecord)
                 case .type:
                     Button {
                         model.generate()
@@ -205,6 +217,12 @@ struct EditorView: View {
         .background(.bar)
     }
 
+    /// Shows what a swap will cost: ElevenLabs bills speech-to-speech by audio length.
+    private var swapTitle: String {
+        let seconds = Int(model.project.secondsNeedingConversion.rounded(.up))
+        return "Swap voices · \(seconds) s"
+    }
+
     private var recordTitle: String {
         if let name = model.project.activeCharacter?.name, !name.isEmpty {
             return "Record as \(name)"
@@ -217,6 +235,7 @@ struct EditorView: View {
         case .generating: "Generating voice…"
         case .composing: "Updating preview…"
         case .exporting: "Exporting…"
+        case .swapping: "Swapping voices…"
         }
     }
 

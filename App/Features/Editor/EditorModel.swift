@@ -13,7 +13,7 @@ final class EditorModel {
     }
 
     enum Activity: Equatable {
-        case generating, composing, exporting
+        case generating, composing, exporting, swapping
     }
 
     struct Failure: Identifiable {
@@ -43,7 +43,8 @@ final class EditorModel {
     var voice: Voice?
 
     // Output
-    private(set) var captions: [Caption] = []
+    /// Written by the model and its extensions; views only read it.
+    var captions: [Caption] = []
     private(set) var player: AVPlayer?
     private(set) var exportedURL: URL?
     private(set) var activity: Activity?
@@ -57,8 +58,8 @@ final class EditorModel {
     private var effectFile: URL?
     private var composed: ComposedVideo?
     private var work: Task<Void, Never>?
-    private var recordingStart: Double = 0
-    private var transcriptions: [Take.ID: Task<Void, Never>] = [:]
+    var recordingStart: Double = 0
+    var transcriptions: [Take.ID: Task<Void, Never>] = [:]
 
     init(client: ElevenLabsClient) {
         self.client = client
@@ -81,6 +82,10 @@ final class EditorModel {
 
     var canRecord: Bool {
         player != nil && project.activeCharacter != nil && activity == nil
+    }
+
+    var canSwapVoices: Bool {
+        mode == .record && !project.takesNeedingConversion.isEmpty && activity == nil && !isRecording
     }
 
     var isRecording: Bool { recorder.isRecording }
@@ -128,79 +133,6 @@ final class EditorModel {
         }
     }
 
-    // MARK: - Record mode
-
-    func startRecording() {
-        guard canRecord, let player else { return }
-        Task {
-            guard await recorder.requestPermission() else {
-                failure = Failure(message: TakeRecorder.Failure.microphoneDenied.localizedDescription, recovery: .none)
-                return
-            }
-            do {
-                recordingStart = player.currentTime().seconds
-                // The video is silenced while recording so the microphone doesn't pick it up.
-                player.isMuted = true
-                _ = try recorder.start()
-                player.play()
-            } catch {
-                player.isMuted = false
-                failure = Failure(message: error.localizedDescription, recovery: .none)
-            }
-        }
-    }
-
-    func stopRecording() {
-        guard isRecording, let player, let character = project.activeCharacter else { return }
-        player.pause()
-        player.isMuted = false
-        let duration = recorder.stop()
-        guard let url = recorder.lastRecordingURL, duration >= TakeResolver.minimumDuration else { return }
-        let take = project.addTake(characterID: character.id, start: recordingStart, duration: duration, recording: url)
-        player.seek(to: CMTime(seconds: recordingStart, preferredTimescale: 600))
-        rebuildCaptions()
-        recompose()
-        transcribe(take)
-    }
-
-    func delete(_ take: Take) {
-        transcriptions[take.id]?.cancel()
-        transcriptions[take.id] = nil
-        project.remove(take)
-        rebuildCaptions()
-        recompose()
-    }
-
-    /// Recognises the words in a take so captions can follow it. Runs alongside other work.
-    func transcribe(_ take: Take) {
-        transcriptions[take.id]?.cancel()
-        transcriptions[take.id] = Task {
-            defer { transcriptions[take.id] = nil }
-            do {
-                let words = try await Transcriber.words(in: take.recording, locale: RecordingLanguage.locale)
-                guard !Task.isCancelled else { return }
-                project.setTranscript(words, for: take.id)
-                rebuildCaptions()
-            } catch is CancellationError {
-            } catch {
-                failure = Failure(message: error.localizedDescription, recovery: .retry) { [weak self] in
-                    self?.transcribe(take)
-                }
-            }
-        }
-    }
-
-    /// Captions for Record mode: each character's words on its own line, cut to the audible segments.
-    private func rebuildCaptions() {
-        guard mode == .record else { return }
-        captions = CaptionAssembler.captions(
-            segments: project.segments,
-            takes: project.takes,
-            transcripts: project.transcripts,
-            characterOrder: project.characters.map(\.id)
-        )
-    }
-
     // MARK: - Shared
 
     /// Re-builds the edit after something moved; no network involved.
@@ -229,7 +161,7 @@ final class EditorModel {
 
     // MARK: - Private
 
-    private func run(_ activity: Activity, _ operation: @escaping () async throws -> Void) {
+    func run(_ activity: Activity, _ operation: @escaping () async throws -> Void) {
         work?.cancel()
         self.activity = activity
         work = Task {
