@@ -14,6 +14,10 @@ voices → export an MP4 with captions burned in.
 
 ## Architecture
 
+Design notes with the reasoning live in [`docs/`](docs/README.md): architecture, Swift concurrency
+decisions, the media pipeline, takes and the timeline, persistence, the ElevenLabs integration and a
+candid list of known issues.
+
 Two layers with a one-way dependency. The app owns UI, state, recording and AVFoundation; `VoiceoverKit`
 owns the network, parsing and the pure timeline maths (overlap resolution, caption assembly), has no UI
 imports and is tested with plain `swift test`.
