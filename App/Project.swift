@@ -37,6 +37,18 @@ final class Project {
     /// Mix levels, 0...1. Used by the preview and the export alike.
     var mix = MixLevels()
 
+    /// Export range in seconds; nil ends mean the video's own start or end.
+    var trimStart: Double?
+    var trimEnd: Double?
+
+    var trimRange: ClosedRange<Double> {
+        let start = trimStart ?? 0
+        let end = trimEnd ?? videoDuration
+        return start...max(end, start + 0.1)
+    }
+
+    var isTrimmed: Bool { trimStart != nil || trimEnd != nil }
+
     private var nextSequence = 0
 
     init() {
@@ -59,6 +71,8 @@ final class Project {
     func setVideo(_ url: URL, duration: Double) {
         videoURL = url
         videoDuration = duration
+        trimStart = nil
+        trimEnd = nil
         for effect in effects { try? FileManager.default.removeItem(at: effect.audio) }
         effects.removeAll()
         takes.removeAll()

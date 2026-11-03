@@ -17,6 +17,8 @@ struct TimelineStrip: View {
     let characters: [Character]
     let effects: [SoundEffect]
     let onDeleteEffect: (SoundEffect) -> Void
+    /// Export range; the strip outside it is dimmed.
+    let trim: ClosedRange<Double>?
     /// The time to show when the player is not running (after a seek, a stop, or on first appearance).
     let currentTime: Double
     let isPlaying: Bool
@@ -49,6 +51,7 @@ struct TimelineStrip: View {
                     frameRow
                     lanes
                 }
+                .overlay(alignment: .leading) { trimShade }
                 .offset(x: center - CGFloat(time) * pointsPerSecond)
             }
             .frame(width: geometry.size.width, alignment: .leading)
@@ -88,6 +91,21 @@ struct TimelineStrip: View {
                 dragStartTime = nil
                 isScrubbing = false
             }
+    }
+
+    @ViewBuilder
+    private var trimShade: some View {
+        if let trim {
+            let head = CGFloat(trim.lowerBound) * pointsPerSecond
+            let tail = contentWidth - CGFloat(trim.upperBound) * pointsPerSecond
+            HStack(spacing: 0) {
+                Rectangle().fill(.black.opacity(0.55)).frame(width: max(head, 0))
+                Rectangle().stroke(Color.accentColor, lineWidth: 2)
+                    .frame(width: max(contentWidth - head - tail, 0))
+                Rectangle().fill(.black.opacity(0.55)).frame(width: max(tail, 0))
+            }
+            .allowsHitTesting(false)
+        }
     }
 
     private var frameRow: some View {

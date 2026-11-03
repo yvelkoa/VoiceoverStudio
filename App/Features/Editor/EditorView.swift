@@ -146,6 +146,12 @@ struct EditorView: View {
                         .foregroundStyle(.secondary)
                 } else if model.mode == .record {
                     Button("Preview", systemImage: "play.rectangle") { showsPreview = true }
+                    if model.project.isTrimmed {
+                        let range = model.project.trimRange
+                        LabeledContent("Export range") {
+                            Text("\(timecode(range.lowerBound)) – \(timecode(range.upperBound))").monospacedDigit()
+                        }
+                    }
                 }
                 if !model.hasResult {
                     EmptyView()
@@ -230,6 +236,10 @@ struct EditorView: View {
 
     private var recordTitle: String {
         model.project.takes.isEmpty ? "Record takes" : "Record more"
+    }
+
+    private func timecode(_ seconds: Double) -> String {
+        Duration.seconds(seconds).formatted(.time(pattern: .minuteSecond(padMinuteToLength: 1, fractionalSecondsLength: 1)))
     }
 
     private func activityTitle(_ activity: EditorModel.Activity) -> String {

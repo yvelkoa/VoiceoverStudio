@@ -117,7 +117,13 @@ nonisolated enum VideoComposer {
     }
 
     /// Renders the edit with burned-in captions at the given mix and returns an MP4 in the temporary directory.
-    static func export(_ composed: ComposedVideo, captions: [Caption], levels: MixLevels) async throws -> URL {
+    /// `range` keeps only that part of the timeline; caption times stay in composition time, so nothing shifts.
+    static func export(
+        _ composed: ComposedVideo,
+        captions: [Caption],
+        levels: MixLevels,
+        range: ClosedRange<Double>? = nil
+    ) async throws -> URL {
         var configuration = composed.videoConfiguration
         let size = configuration.renderSize
 
@@ -140,6 +146,11 @@ nonisolated enum VideoComposer {
         }
         session.videoComposition = AVVideoComposition(configuration: configuration)
         session.audioMix = composed.audioMix(levels)
+        if let range {
+            let start = CMTime(seconds: range.lowerBound, preferredTimescale: 600)
+            let end = CMTime(seconds: range.upperBound, preferredTimescale: 600)
+            session.timeRange = CMTimeRange(start: start, end: end)
+        }
 
         let output = URL.temporaryDirectory.appending(path: "voiceover-\(UUID().uuidString).mp4")
         try await session.export(to: output, as: .mp4)

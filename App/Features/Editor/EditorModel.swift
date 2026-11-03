@@ -138,8 +138,9 @@ final class EditorModel {
         guard let composed, hasResult else { return }
         let captions = captions
         let levels = project.mix
+        let range = project.isTrimmed ? project.trimRange : nil
         run(.exporting) {
-            self.exportedURL = try await VideoComposer.export(composed, captions: captions, levels: levels)
+            self.exportedURL = try await VideoComposer.export(composed, captions: captions, levels: levels, range: range)
         }
     }
 

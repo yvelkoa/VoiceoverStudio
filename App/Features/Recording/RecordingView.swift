@@ -34,6 +34,7 @@ struct RecordingView: View {
                     characters: model.project.characters,
                     effects: model.project.effects,
                     onDeleteEffect: { model.remove($0) },
+                    trim: model.project.isTrimmed ? model.project.trimRange : nil,
                     currentTime: currentTime,
                     isPlaying: isPlaying,
                     isLocked: model.isRecording,
@@ -53,6 +54,25 @@ struct RecordingView: View {
                         .popover(isPresented: $showsMix) {
                             MixPopover(project: model.project) { model.applyMix() }
                         }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu("Trim", systemImage: "scissors") {
+                        Button("Start export here", systemImage: "arrow.right.to.line") {
+                            model.project.trimStart = currentTime
+                            if let end = model.project.trimEnd, end <= currentTime { model.project.trimEnd = nil }
+                        }
+                        Button("End export here", systemImage: "arrow.left.to.line") {
+                            model.project.trimEnd = currentTime
+                            if let start = model.project.trimStart, start >= currentTime { model.project.trimStart = nil }
+                        }
+                        if model.project.isTrimmed {
+                            Button("Clear trim", systemImage: "xmark", role: .destructive) {
+                                model.project.trimStart = nil
+                                model.project.trimEnd = nil
+                            }
+                        }
+                    }
+                    .disabled(model.isRecording)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }.disabled(model.isRecording)
