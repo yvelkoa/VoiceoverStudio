@@ -86,6 +86,50 @@ private struct CharacterRow: View {
     }
 }
 
+/// Levels of the original soundtrack and the voice. Applied to the preview on release and to the export.
+struct MixSection: View {
+    @Bindable var project: Project
+    let onChange: () -> Void
+
+    var body: some View {
+        Section {
+            VolumeRow(
+                title: "Original audio",
+                systemImage: "speaker.wave.2",
+                value: $project.originalAudioVolume,
+                onChange: onChange
+            )
+            VolumeRow(title: "Voice", systemImage: "person.wave.2", value: $project.voiceVolume, onChange: onChange)
+        } header: {
+            Text("Mix")
+        } footer: {
+            Text("The same levels go into the exported video.")
+        }
+    }
+}
+
+private struct VolumeRow: View {
+    let title: String
+    let systemImage: String
+    @Binding var value: Float
+    let onChange: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            LabeledContent {
+                Text(value, format: .percent.precision(.fractionLength(0)))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            } label: {
+                Label(title, systemImage: systemImage)
+            }
+            Slider(value: $value, in: 0...1) { editing in
+                if !editing { onChange() }
+            }
+        }
+    }
+}
+
 /// Every take in timeline order, with who said it and when; swipe to delete.
 struct TakesSection: View {
     let project: Project

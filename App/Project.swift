@@ -24,6 +24,10 @@ final class Project {
     var effectPrompt = ""
     var effectStart: Double = 0
 
+    /// Mix levels, 0...1. Used by the preview and the export alike.
+    var originalAudioVolume: Float = 0.25
+    var voiceVolume: Float = 1
+
     private var nextSequence = 0
 
     init() {

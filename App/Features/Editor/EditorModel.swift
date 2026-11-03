@@ -190,7 +190,7 @@ final class EditorModel {
         let composed = try await VideoComposer.compose(
             video: videoURL,
             clips: clips,
-            originalAudioVolume: clips.isEmpty ? 1 : VideoComposer.originalAudioVolume
+            originalAudioVolume: clips.isEmpty ? 1 : project.originalAudioVolume
         )
         try Task.checkCancellation()
 
@@ -211,16 +211,23 @@ final class EditorModel {
     }
 
     private func voiceClips() -> [AudioClip] {
+        let volume = project.voiceVolume
         switch mode {
         case .type:
-            return speechFile.map { [AudioClip(url: $0)] } ?? []
+            return speechFile.map { [AudioClip(url: $0, volume: volume)] } ?? []
         case .record:
             let takes = Dictionary(uniqueKeysWithValues: project.takes.map { ($0.id, $0) })
             return project.segments.compactMap { segment in
                 guard let take = takes[segment.takeID] else { return nil }
                 // Converted audio keeps the take's timing, so the same offsets apply to it.
                 let url = project.convertedAudio[take.id] ?? take.recording
-                return AudioClip(url: url, start: segment.start, sourceOffset: segment.sourceOffset, duration: segment.duration)
+                return AudioClip(
+                    url: url,
+                    start: segment.start,
+                    sourceOffset: segment.sourceOffset,
+                    duration: segment.duration,
+                    volume: volume
+                )
             }
         }
     }

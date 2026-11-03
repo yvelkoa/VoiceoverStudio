@@ -27,6 +27,9 @@ struct EditorView: View {
                     TakesSection(project: model.project) { model.delete($0) }
                 }
                 effectSection
+                if model.player != nil {
+                    MixSection(project: model.project) { model.recompose() }
+                }
                 resultSection
             }
             .navigationTitle("Voiceover Studio")
