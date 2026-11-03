@@ -30,9 +30,20 @@ Honest list for the next review. Each item says why it is still there.
 - The debug hook `VOICEOVER_DEBUG_VIDEO` lives in `EditorView+Helpers` behind `#if DEBUG`.
 - `Scripts/check.sh` hard-codes the `iPhone 17` simulator destination.
 - Transcription errors surface as an alert with Retry; a quieter inline state per take would be better.
+- Edits that change the composition are disabled while a job runs (`EditorModel.isBusy`) rather than queued;
+  simpler, and a swap takes seconds, not minutes.
 - `Waveform` and `FrameStrip` are recomputed per open (utility priority) instead of cached on disk.
 
 ## Not done yet
+
+- Localisation: every string is hard-coded English, no String Catalog. The recording-language setting shows
+  the audience is multilingual.
+- Recording past the end of the video continues until Stop; the composer trims the audio later. Auto-stop at
+  the video's end would be the expected behaviour.
+- `project.pbxproj` is committed next to `project.yml`. With xcodegen the usual choice is one or the other;
+  keeping both means they drift whenever someone forgets `xcodegen generate`.
+- No app-level tests. The task slots, the autosaver and the routing of edits through `EditorModel` are
+  verified by reading and by the build only; the review in `review-2026-11-03.md` found its bugs there.
 
 - Dragging takes/effects along their lanes; trimming silence at take edges.
 - Hearing other characters' takes while recording a reply (needs echo cancellation or headphones).

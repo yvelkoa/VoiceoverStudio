@@ -12,6 +12,7 @@ time.
 | [persistence.md](persistence.md) | Project folders, the manifest, autosave, invalidation and file lifecycle |
 | [elevenlabs.md](elevenlabs.md) | Endpoints used, permissions, voice settings, errors, credits |
 | [known-issues.md](known-issues.md) | Limits, shortcuts and debt, with the reason each one is still there |
+| [review-2026-11-03.md](review-2026-11-03.md) | Full code review (architecture, concurrency, SwiftUI, media, persistence) and what was done about each finding |
 
 Conventions used throughout:
 
