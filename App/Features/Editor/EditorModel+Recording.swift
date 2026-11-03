@@ -36,6 +36,9 @@ extension EditorModel {
         rebuildCaptions()
         recompose()
         transcribe(take)
+        Task { [project] in
+            if let waveform = try? await Waveform.load(take.recording) { project.setWaveform(waveform, for: take.id) }
+        }
     }
 
     func delete(_ take: Take) {

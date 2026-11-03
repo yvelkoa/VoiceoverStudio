@@ -18,6 +18,8 @@ final class Project {
     private(set) var convertedAudio: [Take.ID: URL] = [:]
     /// Seconds the converted audio is longer (or shorter) than the recording. Large values desync captions.
     private(set) var conversionDrift: [Take.ID: Double] = [:]
+    /// Peak levels of each recording, for the timeline.
+    private(set) var waveforms: [Take.ID: Waveform] = [:]
 
     var effectPrompt = ""
     var effectStart: Double = 0
@@ -49,6 +51,7 @@ final class Project {
         transcripts.removeAll()
         convertedAudio.removeAll()
         conversionDrift.removeAll()
+        waveforms.removeAll()
     }
 
     // MARK: - Characters
@@ -97,7 +100,13 @@ final class Project {
         transcripts[take.id] = nil
         convertedAudio[take.id] = nil
         conversionDrift[take.id] = nil
+        waveforms[take.id] = nil
         try? FileManager.default.removeItem(at: take.recording)
+    }
+
+    func setWaveform(_ waveform: Waveform, for takeID: Take.ID) {
+        guard takes.contains(where: { $0.id == takeID }) else { return }
+        waveforms[takeID] = waveform
     }
 
     func setTranscript(_ words: [TimedWord], for takeID: Take.ID) {
