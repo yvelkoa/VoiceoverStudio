@@ -10,31 +10,16 @@ import VoiceoverKit
 final class EditorModel {
     typealias Mode = EditingMode
 
-    // MARK: - Types
-
-    enum Activity: Equatable {
-        case generating, generatingEffect, composing, exporting, swapping, saving
-    }
-
-    struct Failure: Identifiable {
-        let id = UUID()
-        let message: String
-        let recovery: ElevenLabsError.Recovery
-        /// Repeats exactly the step that failed (an export retry must not re-spend generation credits).
-        /// Built from a weak reference to the model and plain values only: a failure is stored on the model,
-        /// so a retry that captured the operation (and through it `self`) would keep the editor alive.
-        var retry: (() -> Void)?
-    }
-
-    /// Where a piece of work runs. Composing is cheap and restartable; a job spends credits or minutes.
-    /// Keeping them apart means a recompose can never cancel a swap or an export.
-    enum Slot { case compose, job }
+    typealias Activity = WorkRunner.Activity
+    typealias Failure = WorkRunner.Failure
 
     // MARK: - Dependencies
 
     let project: Project
     let client: ElevenLabsClient
     let recorder = TakeRecorder()
+    /// Runs every step in its slot (compose vs. job) and holds the activity and failure the UI shows.
+    private let work = WorkRunner()
     private var autosaver: ProjectAutosaver?
 
     // MARK: - Project-backed state (stored on the project so it survives relaunch)
@@ -79,17 +64,20 @@ final class EditorModel {
     /// Thumbnails for the scrubber, decoded once per video; decoding 60 fps frames on every open stuttered.
     private(set) var frameStrip: CGImage?
 
-    // MARK: - Activity and failure
+    // MARK: - Activity and failure (forwarded from the runner so views keep one object to read)
 
-    private(set) var activity: Activity?
-    var failure: Failure?
+    var activity: Activity? { work.activity }
 
-    // MARK: - Work in flight
+    var failure: Failure? {
+        get { work.failure }
+        set { work.failure = newValue }
+    }
 
-    private var composeTask: Task<Void, Never>?
-    private var jobTask: Task<Void, Never>?
-    /// A recompose was requested while a job ran; it happens when the job is done.
-    private var needsRecompose = false
+    /// A swap, export, generation or save is running; see `WorkRunner.isBusy`.
+    var isBusy: Bool { work.isBusy }
+
+    // MARK: - Decorations in flight
+
     private var frameStripTask: Task<Void, Never>?
     /// Waveform decodes for the takes and effects of a loaded project; cancelled with the editor.
     private var waveformTask: Task<Void, Never>?
@@ -118,8 +106,7 @@ final class EditorModel {
     /// The editor is gone when the screen that owned it is popped: flush the last changes and stop playback.
     /// (Not onDisappear: that also fires when a picker is pushed on top, and must not cancel an export.)
     isolated deinit {
-        composeTask?.cancel()
-        jobTask?.cancel()
+        work.cancelAll()
         frameStripTask?.cancel()
         waveformTask?.cancel()
         for task in transcriptions.values { task.cancel() }
@@ -151,10 +138,6 @@ final class EditorModel {
     // MARK: - What the UI may do right now
 
     var isRecording: Bool { recorder.isRecording }
-
-    /// A swap, export, generation or save is running. Edits that change the composition wait until it is done,
-    /// so the job is never cancelled by accident (a cancelled swap has already been billed).
-    var isBusy: Bool { jobTask != nil }
 
     var canGenerate: Bool {
         videoURL != nil && voice != nil && !trimmedScript.isEmpty && activity == nil
@@ -226,14 +209,12 @@ final class EditorModel {
     /// Re-builds the edit after something moved; no network involved. Deferred while a job runs.
     func recompose() {
         guard let videoURL else { return }
-        if isBusy {
-            needsRecompose = true
-            return
+        work.whenIdle { [weak self] in
+            guard let self else { return }
+            run(.composing, slot: .compose, retry: { [weak self] in self?.recompose() }, operation: {
+                try await self.compose(videoURL: videoURL)
+            })
         }
-
-        run(.composing, slot: .compose, retry: { [weak self] in self?.recompose() }, operation: {
-            try await self.compose(videoURL: videoURL)
-        })
     }
 
     /// Builds the edit and puts it on the player. Jobs call this directly at their end instead of
@@ -308,66 +289,18 @@ final class EditorModel {
 
     // MARK: - Running steps
 
-    /// Runs one step in its slot and reports a failure with `retry`, which must re-enter the public method
-    /// with values only (no captured operation), see `Failure.retry`.
+    /// See `WorkRunner.run`. Kept on the model so the extensions read as before.
     func run(
         _ activity: Activity,
-        slot: Slot = .job,
+        slot: WorkRunner.Slot = .job,
         retry: (@MainActor () -> Void)? = nil,
         operation: @escaping () async throws -> Void
     ) {
-        switch slot {
-        case .compose: composeTask?.cancel()
-        case .job: jobTask?.cancel()
-        }
-        self.activity = activity
-
-        let task = Task {
-            do {
-                try await operation()
-            } catch is CancellationError {
-                // Cancelled or superseded; nothing to report.
-            } catch {
-                // AVFoundation and Photos report a cancelled task with their own errors; those are not failures.
-                guard !Task.isCancelled else { return }
-                let recovery = (error as? ElevenLabsError)?.recovery ?? .retry
-                failure = Failure(message: error.localizedDescription, recovery: recovery, retry: retry)
-            }
-            if !Task.isCancelled { finish(slot) }
-        }
-
-        switch slot {
-        case .compose: composeTask = task
-        case .job: jobTask = task
-        }
+        work.run(activity, slot: slot, retry: retry, operation: operation)
     }
 
-    private func finish(_ slot: Slot) {
-        activity = nil
-
-        switch slot {
-        case .compose:
-            composeTask = nil
-        case .job:
-            jobTask = nil
-            if needsRecompose {
-                needsRecompose = false
-                recompose()
-            }
-        }
-    }
-
-    /// Stops whatever is running. The user asked for it, so a job's partial result is dropped on purpose.
+    /// Stops whatever is running; the user asked for it.
     func cancel() {
-        composeTask?.cancel()
-        composeTask = nil
-        jobTask?.cancel()
-        jobTask = nil
-        activity = nil
-
-        if needsRecompose {
-            needsRecompose = false
-            recompose()
-        }
+        work.cancelAll()
     }
 }

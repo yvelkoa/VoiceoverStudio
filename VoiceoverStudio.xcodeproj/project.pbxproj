@@ -57,6 +57,7 @@
 		E702E5373A42EA15BC7FBED7 /* TimelineStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 243DC1684CA5879217CC58BA /* TimelineStrip.swift */; };
 		EA2F0DF2FED52724EA6A1B45 /* CharactersSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E11F4F5C132E8EBEFAEBA4 /* CharactersSection.swift */; };
 		EBBFA6506A9F834EAB75EBF9 /* AudioClip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25A2E9068CF368D5CBFBE81E /* AudioClip.swift */; };
+		F4A233E5EA0CA151AB4D62C1 /* WorkRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C46021B28BE277B16318CB4 /* WorkRunner.swift */; };
 		F6F86CBDDE0806B94172EC06 /* ComposedVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 247ECE5D1C65467683AA560B /* ComposedVideo.swift */; };
 		FBE358EA7570852D70D02BB6 /* TakeRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88D3DD210DDF55BBBCAADFD /* TakeRecorder.swift */; };
 /* End PBXBuildFile section */
@@ -77,6 +78,7 @@
 		366393B17A56CF222EF9179E /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		3946F361F397BB49B0E99239 /* EditorModel+Jobs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorModel+Jobs.swift"; sourceTree = "<group>"; };
 		3B760C0DC74AD6336EA3C76D /* MixPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MixPopover.swift; sourceTree = "<group>"; };
+		3C46021B28BE277B16318CB4 /* WorkRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkRunner.swift; sourceTree = "<group>"; };
 		416C0DD9AB2212A306BA60F4 /* ProjectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStore.swift; sourceTree = "<group>"; };
 		428C57A4F7AEA0E3B942563C /* AudioSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSession.swift; sourceTree = "<group>"; };
 		4B275154C859609BD2CDB7F3 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -321,6 +323,7 @@
 				33C9106D63BEF1AB64B06299 /* EditorModel+Recording.swift */,
 				7B406D41D1C09D5729D6DCB2 /* EditorView.swift */,
 				D62BAC0741CD950254F2526E /* EditorView+Helpers.swift */,
+				3C46021B28BE277B16318CB4 /* WorkRunner.swift */,
 				FEA95634946C087DC0333F11 /* Sections */,
 			);
 			path = Editor;
@@ -500,6 +503,7 @@
 				58410D0793231AAB7D045C89 /* VoiceSwapper.swift in Sources */,
 				7DCA0A23BA22A9D71C6C0870 /* VoiceoverStudioApp.swift in Sources */,
 				023732CCEB783713F672AE24 /* Waveform.swift in Sources */,
+				F4A233E5EA0CA151AB4D62C1 /* WorkRunner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
