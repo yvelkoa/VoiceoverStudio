@@ -70,7 +70,9 @@ nonisolated enum VideoComposer {
 
     /// Renders the edit with burned-in captions and returns an MP4 in the temporary directory.
     static func export(_ composed: ComposedVideo, captions: [Caption]) async throws -> URL {
-        let videoComposition = composed.videoComposition.mutableCopy() as! AVMutableVideoComposition
+        guard let videoComposition = composed.videoComposition.mutableCopy() as? AVMutableVideoComposition else {
+            throw Failure.exportUnavailable
+        }
         let size = videoComposition.renderSize
 
         let parentLayer = CALayer()
@@ -86,7 +88,8 @@ nonisolated enum VideoComposer {
             in: parentLayer
         )
 
-        guard let session = AVAssetExportSession(asset: composed.composition, presetName: AVAssetExportPresetHighestQuality) else {
+        let preset = AVAssetExportPresetHighestQuality
+        guard let session = AVAssetExportSession(asset: composed.composition, presetName: preset) else {
             throw Failure.exportUnavailable
         }
         session.videoComposition = videoComposition

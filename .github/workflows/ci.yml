@@ -10,6 +10,10 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: SwiftLint
+        run: |
+          brew install swiftlint
+          swiftlint lint --strict
       - name: Unit tests (VoiceoverKit)
         run: swift test --package-path Packages/VoiceoverKit
       - name: Build app

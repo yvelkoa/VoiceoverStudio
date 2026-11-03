@@ -25,7 +25,8 @@ struct SettingsView: View {
                 } header: {
                     Text("ElevenLabs API key")
                 } footer: {
-                    Text("Create a key at elevenlabs.io → Developers → API Keys. It is stored in the Keychain on this device only.")
+                    Text("Create a key at elevenlabs.io → Developers → API Keys. "
+                        + "It is stored in the Keychain on this device only.")
                 }
 
                 statusSection
