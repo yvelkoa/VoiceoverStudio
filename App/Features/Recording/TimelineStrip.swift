@@ -11,6 +11,7 @@ struct TimelineStrip: View {
     let segments: [AudioSegment]
     let characters: [Character]
     let currentTime: Double
+    let isPlaying: Bool
     let isLocked: Bool
     @Binding var isScrubbing: Bool
     let onScrub: (Double) -> Void
@@ -21,6 +22,10 @@ struct TimelineStrip: View {
     private static let laneSpacing: CGFloat = 3
 
     @State private var position = ScrollPosition(x: 0)
+    /// Last offset reported by the scroll view, to detect drift between the follow animation and the player.
+    @State private var observedOffset: CGFloat = 0
+    /// Follow animations drift after seeks or stalls; past this the strip re-anchors to the player.
+    private static let driftTolerance = 0.12
 
     private var pointsPerSecond: CGFloat { Self.pointsPerSecond }
     private var contentWidth: CGFloat { CGFloat(duration) * pointsPerSecond }
@@ -41,21 +46,51 @@ struct TimelineStrip: View {
             .scrollPosition($position)
             .scrollDisabled(isLocked)
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.x } action: { _, offset in
+                observedOffset = offset
                 guard isScrubbing else { return }
                 onScrub(min(max(Double(offset / pointsPerSecond), 0), duration))
             }
             .onScrollPhaseChange { _, phase in
                 isScrubbing = phase != .idle && phase != .animating
             }
+            .onChange(of: isPlaying) { _, playing in
+                guard !isScrubbing else { return }
+                if playing { startFollowing(from: currentTime) } else { jump(to: currentTime) }
+            }
             .onChange(of: currentTime) { _, time in
                 guard !isScrubbing else { return }
-                position.scrollTo(x: CGFloat(time) * pointsPerSecond)
+                if isPlaying {
+                    // One long linear animation keeps the strip moving at display rate; only re-anchor on drift.
+                    let shown = Double(observedOffset / pointsPerSecond)
+                    if abs(shown - time) > Self.driftTolerance { startFollowing(from: time) }
+                } else {
+                    jump(to: time)
+                }
             }
             .overlay {
                 playhead
             }
         }
         .frame(height: Self.frameHeight + 6 + lanesHeight)
+    }
+
+    /// Scrolls at exactly playback speed from `time` to the end of the video.
+    private func startFollowing(from time: Double) {
+        jump(to: time)
+        let remaining = max(duration - time, 0)
+        guard remaining > 0 else { return }
+        withAnimation(.linear(duration: remaining)) {
+            position.scrollTo(x: contentWidth)
+        }
+    }
+
+    /// Moves the strip without animation, cancelling any follow animation in flight.
+    private func jump(to time: Double) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            position.scrollTo(x: CGFloat(time) * pointsPerSecond)
+        }
     }
 
     private var frameRow: some View {

@@ -24,6 +24,7 @@ struct RecordingView: View {
                     segments: model.project.segments,
                     characters: model.project.characters,
                     currentTime: currentTime,
+                    isPlaying: isPlaying,
                     isLocked: model.isRecording,
                     isScrubbing: $isScrubbing,
                     onScrub: scrub
@@ -152,7 +153,7 @@ struct RecordingView: View {
     private func followPlayer() async {
         guard let player = model.player else { return }
         currentTime = player.currentTime().seconds
-        for await time in player.timeUpdates(every: 0.05) {
+        for await time in player.timeUpdates(every: 0.1) {
             currentTime = time
             isPlaying = player.rate > 0
         }
