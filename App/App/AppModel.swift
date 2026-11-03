@@ -18,15 +18,23 @@ final class AppModel {
     }
 
     /// Saves the key and checks it with a cheap request, so a typo shows up here and not mid-generation.
+    /// A rejected key is removed again; a network failure keeps it, since the key itself may well be fine.
     func saveAndVerify(_ key: String) async throws {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        let previous = keyStore.read()
         guard keyStore.save(trimmed) else { throw ElevenLabsError.missingAPIKey }
         hasAPIKey = true
-        _ = try await client.voices(forceRefresh: true)
+        do {
+            _ = try await client.voices(forceRefresh: true)
+        } catch ElevenLabsError.invalidAPIKey {
+            if let previous { _ = keyStore.save(previous) } else { removeKey() }
+            throw ElevenLabsError.invalidAPIKey
+        }
     }
 
     func removeKey() {
         keyStore.delete()
         hasAPIKey = false
+        Task { await client.clearCache() }
     }
 }

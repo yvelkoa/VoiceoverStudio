@@ -2,7 +2,12 @@
 
 All calls go through `ElevenLabsClient` (kit, an actor). The key is read lazily through a closure from the
 Keychain (`APIKeyStore`), so a key change needs no new client. Nothing is called until the user presses a
-button that says it will cost credits.
+button that says it will cost credits. The default transport is a `URLSession` with a 120 s request timeout:
+the voice changer uploads a whole take and waits for the conversion.
+
+`AppModel.saveAndVerify` saves the key, then fetches the voice list. A `401` puts the previous key back (or
+removes the new one) so the banner and the Settings state stay truthful; a network error keeps the new key,
+because the key may be fine. Removing the key also clears the client's voice cache.
 
 ## Endpoints
 

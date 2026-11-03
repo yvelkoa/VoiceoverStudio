@@ -12,9 +12,17 @@ public actor ElevenLabsClient {
     private let apiKey: @Sendable () -> String?
     private var cachedVoices: [Voice]?
 
+    /// The voice changer uploads a whole take and waits for the conversion; the default 60 s request timeout
+    /// is tight for a long take on a slow link.
+    public static let defaultTransport: any HTTPTransport = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 120
+        return URLSession(configuration: configuration)
+    }()
+
     public init(
         baseURL: URL = URL(string: "https://api.elevenlabs.io")!,
-        transport: any HTTPTransport = URLSession.shared,
+        transport: any HTTPTransport = ElevenLabsClient.defaultTransport,
         apiKey: @escaping @Sendable () -> String?
     ) {
         self.baseURL = baseURL
@@ -23,6 +31,11 @@ public actor ElevenLabsClient {
     }
 
     // MARK: - Endpoints
+
+    /// Forgets the cached voice list, e.g. when the key is removed; the next `voices()` fetches again.
+    public func clearCache() {
+        cachedVoices = nil
+    }
 
     public func voices(forceRefresh: Bool = false) async throws -> [Voice] {
         if let cachedVoices, !forceRefresh { return cachedVoices }
@@ -119,10 +132,13 @@ public actor ElevenLabsClient {
     ) async throws -> Data {
         guard let key = apiKey(), !key.isEmpty else { throw ElevenLabsError.missingAPIKey }
 
-        var components = URLComponents(url: baseURL.appending(path: path), resolvingAgainstBaseURL: false)!
+        guard var components = URLComponents(url: baseURL.appending(path: path), resolvingAgainstBaseURL: false) else {
+            throw ElevenLabsError.invalidRequest("Malformed request path.")
+        }
         if !query.isEmpty { components.queryItems = query }
+        guard let url = components.url else { throw ElevenLabsError.invalidRequest("Malformed request URL.") }
 
-        var request = URLRequest(url: components.url!)
+        var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue(key, forHTTPHeaderField: "xi-api-key")
         if let body {
