@@ -24,6 +24,7 @@ final class AppModel {
         self.keyStore = keyStore
         self.hasAPIKey = keyStore.read() != nil
         self.client = ElevenLabsClient(apiKey: { keyStore.read() })
+        AudioSession.activatePlayback()
     }
 
     /// Saves the key and checks it with a cheap request, so a typo shows up here and not mid-generation.

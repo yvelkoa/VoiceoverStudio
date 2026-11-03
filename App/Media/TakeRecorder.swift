@@ -29,9 +29,7 @@ final class TakeRecorder {
 
     /// Starts a new file and returns its URL. The session is configured so playback keeps working.
     func start(in directory: URL) throws -> URL {
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
-        try session.setActive(true)
+        try AudioSession.activateRecording()
 
         let url = directory.appending(path: "take-\(UUID().uuidString).m4a")
         let settings: [String: Any] = [
@@ -59,6 +57,7 @@ final class TakeRecorder {
         recorder?.stop()
         recorder = nil
         isRecording = false
+        AudioSession.activatePlayback()
         return duration
     }
 

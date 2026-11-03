@@ -28,7 +28,7 @@ struct PreviewScreen: View {
             if let range {
                 player.currentItem?.forwardPlaybackEndTime = CMTime(seconds: range.upperBound, preferredTimescale: 600)
             }
-            player.seek(to: start, toleranceBefore: .zero, toleranceAfter: .zero)
+            player.seek(to: start)
             player.play()
         }
         .onDisappear {

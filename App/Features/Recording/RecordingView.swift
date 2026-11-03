@@ -8,7 +8,6 @@ struct RecordingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
 
-    @State private var strip: CGImage?
     /// Seeks are coalesced: at most one in flight, the latest requested time waits for it.
     @State private var isSeeking = false
     @State private var pendingSeek: Double?
@@ -26,7 +25,7 @@ struct RecordingView: View {
                 characterChips
                 TimelineStrip(
                     player: model.player,
-                    strip: strip,
+                    strip: model.frameStrip,
                     duration: model.videoDuration,
                     segments: model.project.segments,
                     waveforms: model.project.waveforms,
@@ -94,7 +93,14 @@ struct RecordingView: View {
             }
         }
         .interactiveDismissDisabled(model.isRecording)
-        .task(id: model.videoURL) { await loadStrip() }
+        .task(id: model.videoURL) {
+            // Let the presentation animation finish before the decoder competes with it.
+            try? await Task.sleep(for: .milliseconds(350))
+            model.loadFrameStrip(
+                cellSize: CGSize(width: TimelineStrip.pointsPerSecond, height: TimelineStrip.frameHeight),
+                scale: displayScale
+            )
+        }
         .task(id: model.player.map(ObjectIdentifier.init)) { await followPlayer() }
         .onChange(of: model.isRecording) { _, recording in
             // Recording starts and stops the player itself; keep the transport in step.
@@ -205,17 +211,6 @@ struct RecordingView: View {
     }
 
     // MARK: - Behaviour
-
-    private func loadStrip() async {
-        guard let url = model.videoURL, model.videoDuration > 0 else { return }
-        strip = try? await FrameStrip.image(
-            for: url,
-            duration: model.videoDuration,
-            interval: 1,
-            cellSize: CGSize(width: TimelineStrip.pointsPerSecond, height: TimelineStrip.frameHeight),
-            scale: displayScale
-        )
-    }
 
     private func followPlayer() async {
         guard let player = model.player else { return }

@@ -59,6 +59,9 @@ final class EditorModel {
 
     private var speechFile: URL? { project.speechFile }
     private var composed: ComposedVideo?
+    /// Thumbnails for the scrubber, decoded once per video; decoding 60 fps frames on every open stuttered.
+    private(set) var frameStrip: CGImage?
+    private var frameStripTask: Task<Void, Never>?
     private var work: Task<Void, Never>?
     private var autosaver: ProjectAutosaver?
     var recordingStart: Double = 0
@@ -122,10 +125,25 @@ final class EditorModel {
 
     // MARK: - Video
 
+    /// Starts decoding the scrubber strip in the background if it isn't there yet.
+    func loadFrameStrip(cellSize: CGSize, scale: CGFloat) {
+        guard frameStrip == nil, frameStripTask == nil, let videoURL, videoDuration > 0 else { return }
+        frameStripTask = Task(priority: .utility) {
+            let image = try? await FrameStrip.image(
+                for: videoURL, duration: videoDuration, interval: 1, cellSize: cellSize, scale: scale
+            )
+            if !Task.isCancelled { frameStrip = image }
+            frameStripTask = nil
+        }
+    }
+
     /// Moves a picked video into the project folder and starts over with it.
     func setVideo(_ picked: URL) async {
         cancel()
         resetResult()
+        frameStripTask?.cancel()
+        frameStripTask = nil
+        frameStrip = nil
         let destination = project.fileURL("video", extension: picked.pathExtension.isEmpty ? "mov" : picked.pathExtension)
         do {
             if picked.path.hasPrefix(project.folder.path) {
