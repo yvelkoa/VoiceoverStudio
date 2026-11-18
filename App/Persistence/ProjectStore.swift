@@ -33,7 +33,7 @@ final class ProjectStore {
     }
 
     func create() -> Project {
-        let project = Project(folder: folder(for: UUID()), title: "Project \(summaries.count + 1)")
+        let project = Project(folder: folder(for: UUID()), title: String(localized: "Project \(summaries.count + 1)"))
         try? FileManager.default.createDirectory(at: project.folder, withIntermediateDirectories: true)
         try? save(project)
         return project

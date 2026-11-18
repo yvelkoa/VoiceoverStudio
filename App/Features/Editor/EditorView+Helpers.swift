@@ -20,7 +20,7 @@ extension EditorView {
                 // Cleared so that picking the same item again counts as a change.
                 pickedItem = nil
             } catch {
-                model.failure = .init(message: "Couldn't load this video.", recovery: .none)
+                model.failure = .init(message: String(localized: "Couldn't load this video."), recovery: .none)
             }
         }
     }

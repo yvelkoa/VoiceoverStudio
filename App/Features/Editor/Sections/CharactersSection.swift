@@ -52,7 +52,7 @@ private struct CharacterRow: View {
             NavigationLink {
                 VoicePickerView(client: model.client, selection: voiceBinding)
             } label: {
-                Text(character.voice?.name ?? "Voice")
+                Text(character.voice?.name ?? String(localized: "Voice"))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .foregroundStyle(character.voice == nil ? .secondary : .primary)

@@ -130,7 +130,7 @@ struct EditorView: View {
             NavigationLink {
                 VoicePickerView(client: model.client, selection: $model.voice)
             } label: {
-                LabeledContent("Voice", value: model.voice?.name ?? "Choose")
+                LabeledContent("Voice", value: model.voice?.name ?? String(localized: "Choose"))
             }
         } header: {
             Text("Voiceover")
@@ -249,11 +249,11 @@ struct EditorView: View {
     /// Shows what a swap will cost: ElevenLabs bills speech-to-speech by audio length.
     private var swapTitle: String {
         let seconds = Int(model.project.secondsNeedingConversion.rounded(.up))
-        return "Swap voices · \(seconds) s"
+        return String(localized: "Swap voices · \(seconds) s")
     }
 
     private var recordTitle: String {
-        model.project.takes.isEmpty ? "Record takes" : "Record more"
+        model.project.takes.isEmpty ? String(localized: "Record takes") : String(localized: "Record more")
     }
 
     private func timecode(_ seconds: Double) -> String {
@@ -262,12 +262,12 @@ struct EditorView: View {
 
     private func activityTitle(_ activity: EditorModel.Activity) -> String {
         switch activity {
-        case .generating: "Generating voice…"
-        case .generatingEffect: "Generating sound effect…"
-        case .composing: "Updating preview…"
-        case .exporting: "Exporting…"
-        case .swapping: "Swapping voices…"
-        case .saving: "Saving to Photos…"
+        case .generating: String(localized: "Generating voice…")
+        case .generatingEffect: String(localized: "Generating sound effect…")
+        case .composing: String(localized: "Updating preview…")
+        case .exporting: String(localized: "Exporting…")
+        case .swapping: String(localized: "Swapping voices…")
+        case .saving: String(localized: "Saving to Photos…")
         }
     }
 }

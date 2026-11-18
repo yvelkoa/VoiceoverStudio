@@ -10,8 +10,8 @@ nonisolated enum VideoComposer {
 
         var errorDescription: String? {
             switch self {
-            case .noVideoTrack: "This file has no video track."
-            case .exportUnavailable: "Export isn't available for this video."
+            case .noVideoTrack: String(localized: "This file has no video track.")
+            case .exportUnavailable: String(localized: "Export isn't available for this video.")
             }
         }
     }

@@ -7,7 +7,7 @@ nonisolated enum PhotosSaver {
 
         var errorDescription: String? {
             switch self {
-            case .denied: "Photos access is off. Allow “Add Photos Only” for Voiceover Studio in Settings."
+            case .denied: String(localized: "Photos access is off. Allow “Add Photos Only” for Voiceover Studio in Settings.")
             }
         }
     }

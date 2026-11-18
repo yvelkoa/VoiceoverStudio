@@ -21,7 +21,7 @@ struct TakesSection: View {
                     Circle()
                         .fill(CharacterPalette.color(character?.colorIndex ?? 0))
                         .frame(width: 10, height: 10)
-                    Text(character?.name ?? "Unknown")
+                    Text(character?.name ?? String(localized: "Unknown"))
                     Spacer()
                     Text("\(timecode(take.start)) – \(timecode(take.end))")
                         .monospacedDigit()

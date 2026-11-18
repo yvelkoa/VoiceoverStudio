@@ -57,7 +57,7 @@ final class Project: Identifiable {
         self.title = title
         createdAt = .now
         updatedAt = createdAt
-        addCharacter(named: "Narrator")
+        addCharacter(named: String(localized: "Narrator"))
     }
 
     init(document: ProjectDocument, folder: URL) {

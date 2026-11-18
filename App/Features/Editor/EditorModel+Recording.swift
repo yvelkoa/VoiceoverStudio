@@ -65,7 +65,7 @@ extension EditorModel {
     /// Character edits go through the model, not straight to the project: deleting a character drops its
     /// takes and files, and a new voice drops its conversions, so the edit has to be rebuilt afterwards.
     func addCharacter() {
-        project.addCharacter(named: "Character \(project.characters.count + 1)")
+        project.addCharacter(named: String(localized: "Character \(project.characters.count + 1)"))
     }
 
     func removeCharacter(_ id: Character.ID) {
@@ -92,7 +92,7 @@ extension EditorModel {
     func swapVoices() {
         guard canSwapVoices, let videoURL else { return }
         if let missing = project.charactersMissingVoice.first {
-            failure = Failure(message: "Pick a voice for \(missing.name) first.", recovery: .editInput)
+            failure = Failure(message: String(localized: "Pick a voice for \(missing.name) first."), recovery: .editInput)
             return
         }
 

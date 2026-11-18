@@ -29,7 +29,7 @@ struct MixSliders: View {
 }
 
 private struct VolumeRow: View {
-    let title: String
+    let title: LocalizedStringKey
     let systemImage: String
     @Binding var value: Float
     let onChange: () -> Void

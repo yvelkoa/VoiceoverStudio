@@ -13,10 +13,10 @@ nonisolated enum Transcriber {
 
         var errorDescription: String? {
             switch self {
-            case .notAuthorized: return "Speech recognition is off. Allow it in Settings to get captions."
+            case .notAuthorized: return String(localized: "Speech recognition is off. Allow it in Settings to get captions.")
             case .unavailable(let locale):
                 let name = locale.localizedString(forIdentifier: locale.identifier) ?? locale.identifier
-                return "Speech recognition isn't available for \(name)."
+                return String(localized: "Speech recognition isn't available for \(name).")
             }
         }
     }

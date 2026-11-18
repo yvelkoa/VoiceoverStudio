@@ -35,10 +35,12 @@ public enum ElevenLabsError: Error, Equatable, Sendable {
         switch (status, detail?.status) {
         case (_, "quota_exceeded"): return .quotaExceeded
         case (_, "missing_permissions"):
-            return .missingPermission(detail?.message ?? "The API key is missing a permission this feature needs.")
+            let fallback = String(localized: "The API key is missing a permission this feature needs.", bundle: .module)
+            return .missingPermission(detail?.message ?? fallback)
         case (401, _), (_, "invalid_api_key"): return .invalidAPIKey
         case (429, _): return .rateLimited
-        case (400, _), (422, _): return .invalidRequest(detail?.message ?? "The request was rejected.")
+        case (400, _), (422, _):
+            return .invalidRequest(detail?.message ?? String(localized: "The request was rejected.", bundle: .module))
         default: return .server(status: status)
         }
     }
@@ -47,16 +49,24 @@ public enum ElevenLabsError: Error, Equatable, Sendable {
 extension ElevenLabsError: LocalizedError {
     public var errorDescription: String? {
         switch self {
-        case .missingAPIKey: "Add your ElevenLabs API key to get started."
-        case .invalidAPIKey: "Your API key was rejected. Check it in Settings."
+        case .missingAPIKey:
+            String(localized: "Add your ElevenLabs API key to get started.", bundle: .module)
+        case .invalidAPIKey:
+            String(localized: "Your API key was rejected. Check it in Settings.", bundle: .module)
         case .missingPermission(let message):
-            message + " Edit the key's permissions at elevenlabs.io → Developers → API Keys."
-        case .quotaExceeded: "You've used up your ElevenLabs credits for this period."
-        case .rateLimited: "Too many requests right now. Try again in a moment."
+            message + " "
+                + String(localized: "Edit the key's permissions at elevenlabs.io → Developers → API Keys.", bundle: .module)
+        case .quotaExceeded:
+            String(localized: "You've used up your ElevenLabs credits for this period.", bundle: .module)
+        case .rateLimited:
+            String(localized: "Too many requests right now. Try again in a moment.", bundle: .module)
         case .invalidRequest(let message): message
-        case .server(let status): "ElevenLabs is having trouble (HTTP \(status)). Try again."
-        case .network: "No connection to ElevenLabs. Check your network and retry."
-        case .decoding: "Got an unexpected response from ElevenLabs."
+        case .server(let status):
+            String(localized: "ElevenLabs is having trouble (HTTP \(status)). Try again.", bundle: .module)
+        case .network:
+            String(localized: "No connection to ElevenLabs. Check your network and retry.", bundle: .module)
+        case .decoding:
+            String(localized: "Got an unexpected response from ElevenLabs.", bundle: .module)
         }
     }
 }

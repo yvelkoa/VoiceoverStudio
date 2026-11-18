@@ -36,6 +36,7 @@ flowchart LR
 | Autosave 600 ms after the last change and on deinit | a crash inside the window loses one change | none planned |
 | Debug hook `VOICEOVER_DEBUG_VIDEO` in `EditorView+Helpers` | behind `#if DEBUG` | none |
 | `Scripts/check.sh` hard-codes the `iPhone 17` destination | one dev machine | parameterise |
+| Translations live in `Scripts/translations.py`, not edited in Xcode | one reviewed table, regenerated catalogs, `check.sh` fails on a gap | edit the catalogs in Xcode once a translator is involved |
 | Transcription errors surface as an alert with Retry | works | a quieter inline state per take |
 | Edits are **disabled** while a job runs (`isBusy`) rather than queued | simpler; a swap takes seconds | queue if jobs get long |
 | `Waveform` and `FrameStrip` recomputed per open | utility priority, barely visible | cache on disk |
@@ -44,14 +45,14 @@ flowchart LR
 
 **Correctness and polish**
 
-- Localisation: every string is hard-coded English, no String Catalog. The recording-language setting shows the
-  audience is multilingual.
 - Recording past the end of the video continues until Stop; the composer trims the audio later. Auto-stop at the
   video's end is the expected behaviour.
 - `project.pbxproj` is committed next to `project.yml`. With xcodegen the usual choice is one or the other; both
   means they drift whenever someone forgets `xcodegen generate`.
 - No app-level tests. The task slots, the autosaver and the routing of edits through `EditorModel` are verified by
   reading and by the build only; that is where the review found its bugs.
+- Project names and the default character name are stored in the language the project was created in;
+  switching the device language does not rename them.
 
 **Features**
 
@@ -76,3 +77,6 @@ flowchart LR
 | 8 | The save wrote `updatedAt` back into the tracked snapshot | nothing the autosaver tracks may be written by the save itself; it looped every 600 ms |
 | 9 | One task slot for everything | a cheap step cancels an expensive one, and a step that re-enters `run` cancels itself; keep compose and jobs apart, call `compose` directly from a job |
 | 10 | A retry closure stored on the model captured the operation | it captured `self` and the model never deinited; retry with values only |
+| 11 | `Text(name ?? "Voice")` and helpers taking `String` | the fallback is a `String`, so it is neither localised nor extracted; wrap it in `String(localized:)` |
+| 12 | A wrapper like `localized(_ key:)` around `String(localized:bundle:)` | the compiler extracts keys only from the direct call; `strings.sh` would drop them as stale |
+| 13 | `Bundle.module` inside the package's test target | names the tests' bundle, not the package's; use `PackageResources.bundle` |

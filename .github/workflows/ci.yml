@@ -16,6 +16,8 @@ jobs:
           swiftlint lint --strict
       - name: Unit tests (VoiceoverKit)
         run: swift test --package-path Packages/VoiceoverKit
+      - name: Translations complete
+        run: python3 Scripts/fill_strings.py --check
       - name: Build app
         run: |
           brew install xcodegen

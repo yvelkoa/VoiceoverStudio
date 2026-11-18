@@ -200,7 +200,7 @@ final class EditorModel {
                 try FileManager.default.copyItem(at: picked, to: destination)
             }
         } catch {
-            failure = Failure(message: "Couldn't store this video.", recovery: .none)
+            failure = Failure(message: String(localized: "Couldn't store this video."), recovery: .none)
             return
         }
 

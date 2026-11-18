@@ -36,11 +36,13 @@ struct ProjectRow: View {
     }
 
     private var details: String {
-        guard summary.isReadable else { return "Couldn't read this project's manifest. Its files are still on disk." }
-        guard summary.hasVideo else { return "No video yet" }
+        guard summary.isReadable else {
+            return String(localized: "Couldn't read this project's manifest. Its files are still on disk.")
+        }
+        guard summary.hasVideo else { return String(localized: "No video yet") }
         var parts = [Duration.seconds(summary.videoDuration).formatted(.time(pattern: .minuteSecond))]
-        parts.append("\(summary.takeCount) \(summary.takeCount == 1 ? "take" : "takes")")
-        if summary.isExported { parts.append("exported") }
+        parts.append(String(localized: "\(summary.takeCount) takes"))
+        if summary.isExported { parts.append(String(localized: "exported")) }
         return parts.joined(separator: " · ")
     }
 }

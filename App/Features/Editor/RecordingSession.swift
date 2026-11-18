@@ -13,7 +13,7 @@ final class RecordingSession {
 
         var errorDescription: String? {
             switch self {
-            case .microphoneDenied: "Microphone access is off. Allow it in Settings to record takes."
+            case .microphoneDenied: String(localized: "Microphone access is off. Allow it in Settings to record takes.")
             }
         }
     }

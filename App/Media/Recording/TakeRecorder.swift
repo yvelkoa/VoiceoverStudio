@@ -12,7 +12,7 @@ final class TakeRecorder {
 
         var errorDescription: String? {
             switch self {
-            case .alreadyRecording: "A take is already being recorded."
+            case .alreadyRecording: String(localized: "A take is already being recorded.")
             }
         }
     }

@@ -22,6 +22,7 @@
 		4A1B7DEF94445A80237F74CD /* EditorView+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = D62BAC0741CD950254F2526E /* EditorView+Helpers.swift */; };
 		4C9FA9E84C8B8A2BF5FB87D8 /* PhotosSaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D78446984770D30CDFC5654 /* PhotosSaver.swift */; };
 		4CAEC336A29D26865B8924FF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B275154C859609BD2CDB7F3 /* SettingsView.swift */; };
+		4DF82A2A2E47152B9A9B8367 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = BFDB5487C0EF2C13D8227C19 /* Localizable.xcstrings */; };
 		4FA9BA09E220CCCC5B725F53 /* PickedMovie.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27C668CDD4711E074726059 /* PickedMovie.swift */; };
 		50ED0BD1F31D05E8F7FFC7D8 /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = 549A74B5B91BE13AF5C71550 /* Project.swift */; };
 		51CBF5E0AFBD9324C41062C1 /* PlayerLayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C5912AE1B3F0E0CEC1E040 /* PlayerLayerView.swift */; };
@@ -48,6 +49,7 @@
 		91AA04FE650440CE72E35EB7 /* PreviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E33C6796E5DD17BC51EB89D /* PreviewScreen.swift */; };
 		9B7F2098293D458D313A233D /* AudioSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428C57A4F7AEA0E3B942563C /* AudioSession.swift */; };
 		9DE93045866D898027F8F3D6 /* CaptionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23276871CEDD9CF0E73C9825 /* CaptionOverlay.swift */; };
+		A145A84190C5BB99013E4204 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = B1F69C5FA9463E1B4DF37261 /* InfoPlist.xcstrings */; };
 		A1A21B176634440FE11A4994 /* LiveRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AC60669C34950EDC6F2C0BA /* LiveRecording.swift */; };
 		A4F8881E192E35E423F40BE2 /* RecordingLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E38E2C6770B84048F117B4C2 /* RecordingLanguage.swift */; };
 		B52DBFF4AC45C8CA7F8A248D /* CharacterPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8943B3F8B56135B3AE530B60 /* CharacterPalette.swift */; };
@@ -108,10 +110,12 @@
 		AE4E753CF28E42CBFCCC7AE6 /* MixSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MixSection.swift; sourceTree = "<group>"; };
 		B07D91C0D62B6F8041A83361 /* Waveform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Waveform.swift; sourceTree = "<group>"; };
 		B1C5912AE1B3F0E0CEC1E040 /* PlayerLayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerLayerView.swift; sourceTree = "<group>"; };
+		B1F69C5FA9463E1B4DF37261 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		B27C668CDD4711E074726059 /* PickedMovie.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickedMovie.swift; sourceTree = "<group>"; };
 		B7728E3D99D86F0579D47509 /* SegmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentView.swift; sourceTree = "<group>"; };
 		B8063C9726FFBC19DE0B3ACC /* VoiceoverStudioApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceoverStudioApp.swift; sourceTree = "<group>"; };
 		B88D3DD210DDF55BBBCAADFD /* TakeRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TakeRecorder.swift; sourceTree = "<group>"; };
+		BFDB5487C0EF2C13D8227C19 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		D12DC5E454C542B625C35126 /* EditingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditingMode.swift; sourceTree = "<group>"; };
 		D62BAC0741CD950254F2526E /* EditorView+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorView+Helpers.swift"; sourceTree = "<group>"; };
 		DDBDF25A270778B097D7BB54 /* ProjectRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectRow.swift; sourceTree = "<group>"; };
@@ -175,6 +179,8 @@
 			isa = PBXGroup;
 			children = (
 				0D71BB5705F8BDB7ABF9FB06 /* Assets.xcassets */,
+				B1F69C5FA9463E1B4DF37261 /* InfoPlist.xcstrings */,
+				BFDB5487C0EF2C13D8227C19 /* Localizable.xcstrings */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -430,6 +436,8 @@
 			knownRegions = (
 				Base,
 				en,
+				ru,
+				uk,
 			);
 			mainGroup = E36B39157F79C6CDADF7ED89;
 			minimizedProjectReferenceProxies = 1;
@@ -452,6 +460,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				83803121B54F1EAF56B45D2E /* Assets.xcassets in Resources */,
+				A145A84190C5BB99013E4204 /* InfoPlist.xcstrings in Resources */,
+				4DF82A2A2E47152B9A9B8367 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -574,6 +584,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -582,6 +593,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
@@ -654,6 +666,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -661,6 +674,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;

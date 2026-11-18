@@ -145,7 +145,7 @@ struct RecordingView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Circle().fill(CharacterPalette.color(character.colorIndex)).frame(width: 8, height: 8)
-                            Text(character.name.isEmpty ? "Character" : character.name)
+                            Text(character.name.isEmpty ? String(localized: "Character") : character.name)
                         }
                         .font(.subheadline.weight(active ? .semibold : .regular))
                         .padding(.horizontal, 12)
@@ -163,7 +163,8 @@ struct RecordingView: View {
     private var transport: some View {
         ZStack {
             HStack {
-                transportButton("play", systemImage: isPlaying ? "pause.fill" : "play.fill") { togglePlayback() }
+                let playLabel: LocalizedStringKey = isPlaying ? "Pause" : "Play"
+                transportButton(playLabel, systemImage: isPlaying ? "pause.fill" : "play.fill") { togglePlayback() }
                     .disabled(model.isRecording || model.player == nil)
                 transportButton("Delete last take", systemImage: "arrow.uturn.backward") {
                     if let last = model.project.takes.max(by: { $0.sequence < $1.sequence }) {
@@ -201,7 +202,7 @@ struct RecordingView: View {
         }
     }
 
-    private func transportButton(_ label: String, systemImage: String, action: @escaping () -> Void) -> some View {
+    private func transportButton(_ label: LocalizedStringKey, systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.title3)

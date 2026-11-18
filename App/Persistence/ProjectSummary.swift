@@ -30,7 +30,7 @@ nonisolated struct ProjectSummary: Identifiable, Equatable {
     init(unreadableFolder folder: URL, id: UUID) {
         isReadable = false
         self.id = id
-        title = "Unreadable project"
+        title = String(localized: "Unreadable project")
         updatedAt = (try? folder.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
         videoDuration = 0
         takeCount = 0

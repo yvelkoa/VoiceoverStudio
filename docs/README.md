@@ -25,6 +25,7 @@ flowchart LR
 | [takes-and-timeline.md](takes-and-timeline.md) | Takes, characters, overlap resolution, recording, waveforms, transcription, voice swap, the scrubber |
 | [persistence.md](persistence.md) | Project folders, the manifest, loading, autosave, invalidation and file lifecycle |
 | [elevenlabs.md](elevenlabs.md) | Endpoints, key permissions, error model, voice settings, credits, timing drift |
+| [localization.md](localization.md) | String catalogs, the English/Russian/Ukrainian tables, plurals, how to add a string |
 | [known-issues.md](known-issues.md) | Limits, shortcuts and debt, with the reason each one is still there |
 | [review-2026-11-03.md](review-2026-11-03.md) | Full code review and what was done about each finding |
 

@@ -1,0 +1,166 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Add your ElevenLabs API key to get started." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавьте API-ключ ElevenLabs, чтобы начать."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Додайте API-ключ ElevenLabs, щоб почати."
+          }
+        }
+      }
+    },
+    "Edit the key's permissions at elevenlabs.io → Developers → API Keys." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Права ключа меняются на elevenlabs.io → Developers → API Keys."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Права ключа змінюються на elevenlabs.io → Developers → API Keys."
+          }
+        }
+      }
+    },
+    "ElevenLabs is having trouble (HTTP %lld). Try again." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У ElevenLabs проблемы (HTTP %lld). Попробуйте ещё раз."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В ElevenLabs проблеми (HTTP %lld). Спробуйте ще раз."
+          }
+        }
+      }
+    },
+    "Got an unexpected response from ElevenLabs." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Неожиданный ответ от ElevenLabs."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Неочікувана відповідь від ElevenLabs."
+          }
+        }
+      }
+    },
+    "No connection to ElevenLabs. Check your network and retry." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет связи с ElevenLabs. Проверьте сеть и повторите."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Немає зв’язку з ElevenLabs. Перевірте мережу й повторіть."
+          }
+        }
+      }
+    },
+    "The API key is missing a permission this feature needs." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У API-ключа нет права, нужного для этой функции."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API-ключ не має дозволу, потрібного для цієї функції."
+          }
+        }
+      }
+    },
+    "The request was rejected." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запрос отклонён."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запит відхилено."
+          }
+        }
+      }
+    },
+    "Too many requests right now. Try again in a moment." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Слишком много запросов. Попробуйте чуть позже."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Забагато запитів. Спробуйте трохи згодом."
+          }
+        }
+      }
+    },
+    "You've used up your ElevenLabs credits for this period." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Кредиты ElevenLabs на этот период закончились."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Кредити ElevenLabs на цей період закінчилися."
+          }
+        }
+      }
+    },
+    "Your API key was rejected. Check it in Settings." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API-ключ отклонён. Проверьте его в настройках."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API-ключ відхилено. Перевірте його в параметрах."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
