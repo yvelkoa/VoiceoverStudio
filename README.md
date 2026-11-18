@@ -7,8 +7,8 @@ other. Powered by the [ElevenLabs API](https://elevenlabs.io/docs) and on-device
 <!-- TODO: demo GIF (pick clip → record takes → swap voices → export) -->
 
 **Record mode:** pick a video → add characters and give each a voice → scrub to a moment, press Record,
-speak, stop; repeat per line and per character → drop generated sound effects on their own lane → Swap
-voices → export an MP4 with captions burned in.
+speak, stop (or let the video's end stop it); repeat per line and per character → drop generated sound effects
+on their own lane → Swap voices → export an MP4 with captions burned in.
 
 **Type mode:** write a script, pick a voice, generate, export.
 

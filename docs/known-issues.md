@@ -45,8 +45,6 @@ flowchart LR
 
 **Correctness and polish**
 
-- Recording past the end of the video continues until Stop; the composer trims the audio later. Auto-stop at the
-  video's end is the expected behaviour.
 - `project.pbxproj` is committed next to `project.yml`. With xcodegen the usual choice is one or the other; both
   means they drift whenever someone forgets `xcodegen generate`.
 - App tests cover state and files (`AppTests/`), not media: recording, composing, export and transcription

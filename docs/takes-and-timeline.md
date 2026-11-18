@@ -96,6 +96,15 @@ Double-tap protection: `start(in:)` refuses while a recorder exists, and `Editor
 the gap while the microphone prompt is up. Otherwise the first recorder kept metering into `liveLevels` with no one
 to stop it.
 
+**End of the video.** A take ends by itself when the video does: `RecordingSession` holds a `PlaybackEndWatcher`
+while recording, and the model stops the take as if Stop had been pressed on the last frame. Record pressed within
+half a second of the end rewinds to the start first.
+
+> **Decision.** The watcher listens to every `didPlayToEndTime` and compares the item with the player's *current*
+> one when it fires.
+> **Why.** A recompose finishing just after Record swaps the player's item; an observer bound to the old item
+> would never fire and the take would run on over a frozen frame, as it did before.
+
 ## 4. Waveforms (`Waveform`)
 
 | Source | Conversion |

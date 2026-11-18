@@ -56,7 +56,7 @@ App/
     Composition/ VideoComposer, ComposedVideo, AudioClip + AudioKind, MixLevels
     Recording/   TakeRecorder, Waveform, AudioSession
     Speech/      Transcriber, RecordingLanguage
-    Video/       FrameStrip, Thumbnail, PhotosSaver, PickedMovie
+    Video/       FrameStrip, Thumbnail, PhotosSaver, PickedMovie, PlaybackEndWatcher
     ElevenLabs/  VoiceSwapper
   Features/
     Projects/    ProjectListView (root), ProjectRow, ProjectScreen (loads a project, owns its EditorModel)
@@ -164,7 +164,7 @@ stateDiagram-v2
     [*] --> NoVideo
     NoVideo --> Ready: setVideo
     Ready --> Recording: startRecording
-    Recording --> Ready: stopRecording or interruption
+    Recording --> Ready: stopRecording, interruption or video end
     Ready --> Swapping: swapVoices
     Swapping --> Ready: done, error or cancel
     Ready --> Exporting: export

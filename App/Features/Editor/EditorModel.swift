@@ -97,6 +97,8 @@ final class EditorModel {
 
         // A call or an unplugged headset ends the take the same way Stop does, keeping what was recorded.
         recording.onInterruption = { [weak self] in self?.stopRecording() }
+        // The video ran out: keep the take, as if Stop had been pressed at the last frame.
+        recording.onVideoEnd = { [weak self] in self?.stopRecording() }
         transcriptions.onWords = { [weak self] takeID, words in
             guard let self else { return }
             project.setTranscript(words, for: takeID)
