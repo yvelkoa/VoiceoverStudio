@@ -206,7 +206,7 @@ flowchart LR
 3. Run on an iOS 26+ simulator or device, open Settings and paste the key. Pick the recording language
    there too if it differs from the device language.
 
-`Scripts/check.sh` runs lint, the translation check, the package tests and a simulator build.
+`Scripts/check.sh` runs lint, the translation check, the package tests and the app tests on a simulator.
 `Scripts/strings.sh` re-extracts the strings after a text change and fills Russian and Ukrainian from
 `Scripts/translations.py` (see [docs/localization.md](docs/localization.md)). `Scripts/install-sim.sh [video]`
 reinstalls the debug build on the booted simulator; with a video path it opens the recorder directly.

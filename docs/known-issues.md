@@ -30,12 +30,12 @@ flowchart LR
 
 | Shortcut | Why it is fine for now | Upgrade path |
 |---|---|---|
-| `EditorModel` split into `+Recording`, `+Effects`, `+Jobs` with `internal` members | keeps under SwiftLint's type-length limit; one owner for all orchestration | separate coordinators (recording session, swap job, export job) owned by the model |
 | `Project` deletes files itself | manifest and folder stay in step within one mutation | a `ProjectFiles` helper |
 | `ProjectStore` reads and writes JSON on the main actor except `loadInBackground` | manifests are tiny | move writes off-main when a project has hundreds of takes |
 | Autosave 600 ms after the last change and on deinit | a crash inside the window loses one change | none planned |
 | Debug hook `VOICEOVER_DEBUG_VIDEO` in `EditorView+Helpers` | behind `#if DEBUG` | none |
-| `Scripts/check.sh` hard-codes the `iPhone 17` destination | one dev machine | parameterise |
+| `Scripts/check.sh` defaults to the `iPhone 17` simulator | one dev machine; `CHECK_DESTINATION` overrides it | none |
+| App tests wait for unstructured tasks by polling (`eventually`) | the runner and autosaver start their own `Task`s; nothing to await | inject a clock or expose the tasks if the suite gets slow |
 | Translations live in `Scripts/translations.py`, not edited in Xcode | one reviewed table, regenerated catalogs, `check.sh` fails on a gap | edit the catalogs in Xcode once a translator is involved |
 | Transcription errors surface as an alert with Retry | works | a quieter inline state per take |
 | Edits are **disabled** while a job runs (`isBusy`) rather than queued | simpler; a swap takes seconds | queue if jobs get long |
@@ -49,8 +49,8 @@ flowchart LR
   video's end is the expected behaviour.
 - `project.pbxproj` is committed next to `project.yml`. With xcodegen the usual choice is one or the other; both
   means they drift whenever someone forgets `xcodegen generate`.
-- No app-level tests. The task slots, the autosaver and the routing of edits through `EditorModel` are verified by
-  reading and by the build only; that is where the review found its bugs.
+- App tests cover state and files (`AppTests/`), not media: recording, composing, export and transcription
+  are still checked by hand on a device.
 - Project names and the default character name are stored in the language the project was created in;
   switching the device language does not rename them.
 

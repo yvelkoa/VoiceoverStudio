@@ -40,6 +40,11 @@ The kit builds in Swift 6 language mode and is tested with `swift test` on macOS
 instead of the network. That is the reason the boundary is where it is: anything that needs a simulator to test
 stays in the app.
 
+The app has its own test target, `AppTests`, hosted in the app on the simulator. It covers what the review found
+bugs in: `WorkRunner`'s two slots and deferred steps, the autosaver (including the save loop), `ProjectStore`,
+`Project`'s file lifecycle, edits routed through `EditorModel`, and that translations reach the built app.
+Media (recording, composing, export) is not unit-tested.
+
 ## 2. Folders
 
 ```

@@ -18,12 +18,12 @@ jobs:
         run: swift test --package-path Packages/VoiceoverKit
       - name: Translations complete
         run: python3 Scripts/fill_strings.py --check
-      - name: Build app
+      - name: App tests
         run: |
           brew install xcodegen
           xcodegen generate
-          xcodebuild build \
+          xcodebuild test \
             -project VoiceoverStudio.xcodeproj \
             -scheme VoiceoverStudio \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
             CODE_SIGNING_ALLOWED=NO
