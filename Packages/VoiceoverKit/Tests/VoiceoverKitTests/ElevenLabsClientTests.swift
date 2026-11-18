@@ -106,6 +106,31 @@ struct ElevenLabsClientTests {
         await #expect(throws: expected) { try await client.soundEffect(prompt: "door creak") }
     }
 
+    @Test func musicAsksForInstrumentalOfClampedLength() async throws {
+        let transport = MockTransport(responses: [
+            .init(status: 200, body: Data("ID3".utf8)),
+            .init(status: 200, body: Data("ID3".utf8)),
+        ])
+        let client = ElevenLabsClient(transport: transport, apiKey: { "key" })
+
+        let audio = try await client.music(prompt: "calm piano", seconds: 12.34)
+        _ = try await client.music(prompt: "short", seconds: 1)
+
+        #expect(audio == Data("ID3".utf8))
+        let request = try #require(transport.requests.first)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/v1/music")
+        #expect(request.url?.query == "output_format=mp3_44100_128")
+        #expect(request.timeoutInterval == 300, "composing takes longer than the default request timeout")
+        let body = try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+        #expect(body?["prompt"] as? String == "calm piano")
+        #expect(body?["music_length_ms"] as? Int == 12340)
+        #expect(body?["force_instrumental"] as? Bool == true)
+
+        let short = try JSONSerialization.jsonObject(with: transport.requests[1].httpBody ?? Data()) as? [String: Any]
+        #expect(short?["music_length_ms"] as? Int == 3000, "below the API's minimum is raised to it")
+    }
+
     @Test func offlineMapsToNetworkError() async {
         let transport = MockTransport(responses: [], error: URLError(.notConnectedToInternet))
         let client = ElevenLabsClient(transport: transport, apiKey: { "key" })

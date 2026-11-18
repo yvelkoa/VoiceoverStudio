@@ -50,7 +50,7 @@ Media (recording, composing, export) is not unit-tested.
 ```
 App/
   App/           VoiceoverStudioApp (entry), AppModel (API key, store, client), APIKeyStore
-  Models/        Project (the edit), SoundEffect, LiveRecording
+  Models/        Project (the edit), SoundEffect, BackgroundMusic, LiveRecording
   Persistence/   ProjectDocument (on-disk shape), ProjectStore, ProjectAutosaver, ProjectSummary, EditingMode
   Media/
     Composition/ VideoComposer, ComposedVideo, AudioClip + AudioKind, MixLevels
@@ -60,7 +60,7 @@ App/
     ElevenLabs/  VoiceSwapper
   Features/
     Projects/    ProjectListView (root), ProjectRow, ProjectScreen (loads a project, owns its EditorModel)
-    Editor/      EditorView (+Helpers), EditorModel (+Recording, +Effects, +Jobs), WorkRunner, EditPlayer, RecordingSession, TranscriptionQueue, Sections/
+    Editor/      EditorView (+Helpers), EditorModel (+Recording, +Effects, +Music, +Jobs), WorkRunner, EditPlayer, RecordingSession, TranscriptionQueue, Sections/
     Recording/   RecordingView (full-screen recorder), EffectSheet, MixPopover, Timeline/{TimelineStrip, SegmentView}
     Preview/     PreviewScreen, PreviewPlayer, CaptionOverlay, PlayerLayerView, AVPlayer+TimeUpdates
     Settings/    SettingsView
@@ -172,6 +172,8 @@ stateDiagram-v2
     Saving --> Ready: added to Photos
     Ready --> GeneratingEffect: addEffect
     GeneratingEffect --> Ready
+    Ready --> GeneratingMusic: generateMusic
+    GeneratingMusic --> Ready
     Ready --> Generating: generate, Type mode
     Generating --> Ready
     note right of Ready
@@ -189,7 +191,7 @@ step**.
 | Slot | Runs | Cancellation | Why separate |
 |---|---|---|---|
 | **compose** | `recompose()` | A newer compose cancels an older one | Cheap and frequent; restarting is fine |
-| **job** | swap, export, generate, effect, Photos save | Only the user's Cancel button | Spends credits or minutes; a cancelled swap is already billed |
+| **job** | swap, export, generate, effect, music, Photos save | Only the user's Cancel button | Spends credits or minutes; a cancelled swap is already billed |
 
 Consequences:
 
@@ -209,7 +211,7 @@ Consequences:
 ```mermaid
 flowchart LR
     subgraph Shared
-        V[video] --- PL[player] --- MX[mix] --- EX[export] --- EF[effects lane]
+        V[video] --- PL[player] --- MX[mix] --- EX[export] --- EF[effects lane] --- MU[music]
     end
     R["Record mode (the product)"] -->|voice from| T[takes]
     R -->|captions from| TR[transcripts]
@@ -218,4 +220,4 @@ flowchart LR
 ```
 
 `EditingMode.record` is the product; `.type` is the original script-to-speech flow kept as a secondary path. They
-share the video, the player, the mix, the export and the effects lane.
+share the video, the player, the mix, the export, the effects lane and the background music.

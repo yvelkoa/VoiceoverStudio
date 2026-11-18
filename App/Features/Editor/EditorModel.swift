@@ -6,7 +6,8 @@ import VoiceoverKit
 /// Coordinates one open project. `Project` holds the state; four owned objects do the work (`WorkRunner`
 /// runs steps, `EditPlayer` plays the edit, `RecordingSession` records a take, `TranscriptionQueue` recognises
 /// it); this type decides *what happens when*: which clips make the edit, and when to rebuild, swap or export.
-/// Record mode lives in `+Recording`, the effects lane in `+Effects`, the credit-spending steps in `+Jobs`.
+/// Record mode lives in `+Recording`, the effects lane in `+Effects`, background music in `+Music`, the
+/// credit-spending steps in `+Jobs`.
 @Observable
 final class EditorModel {
     typealias Mode = EditingMode
@@ -134,6 +135,7 @@ final class EditorModel {
         recompose()
 
         let sources = project.takes.map { ($0.id, $0.recording) } + project.effects.map { ($0.id, $0.audio) }
+            + (project.music.map { [($0.id, $0.audio)] } ?? [])
         waveformTask = Task(priority: .utility) { [project] in
             await withTaskGroup { group in
                 for (id, url) in sources {
@@ -230,7 +232,7 @@ final class EditorModel {
     /// Builds the edit and puts it on the player. Jobs call this directly at their end instead of
     /// `recompose()`, which would cancel the job that is still running them.
     func compose(videoURL: URL) async throws {
-        try await edit.compose(video: videoURL, clips: voiceClips() + effectClips(), mix: project.mix)
+        try await edit.compose(video: videoURL, clips: voiceClips() + effectClips() + musicClips(), mix: project.mix)
 
         // What was exported no longer matches what is heard.
         project.clearExport()
@@ -266,6 +268,11 @@ final class EditorModel {
 
     private func effectClips() -> [AudioClip] {
         project.effects.map { AudioClip(url: $0.audio, kind: .effect, start: $0.start) }
+    }
+
+    /// From the video's first second; the composer cuts it at the video's end.
+    private func musicClips() -> [AudioClip] {
+        project.music.map { [AudioClip(url: $0.audio, kind: .music)] } ?? []
     }
 
     // MARK: - Running steps

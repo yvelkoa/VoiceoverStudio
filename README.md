@@ -8,7 +8,8 @@ other. Powered by the [ElevenLabs API](https://elevenlabs.io/docs) and on-device
 
 **Record mode:** pick a video → add characters and give each a voice → scrub to a moment, press Record,
 speak, stop (or let the video's end stop it); repeat per line and per character → drop generated sound effects
-on their own lane → Swap voices → export an MP4 with captions burned in.
+on their own lane → describe background music and ElevenLabs composes it to the video's length → Swap voices →
+export an MP4 with captions burned in.
 
 **Type mode:** write a script, pick a voice, generate, export.
 
@@ -200,7 +201,7 @@ flowchart LR
 ## Run it
 
 1. Get an API key at elevenlabs.io → Developers → API Keys. The free tier is enough. Give the key these
-   permissions: Text to Speech, Speech to Speech (Voice Changer), Voices and Sound Effects. A key without one
+   permissions: Text to Speech, Speech to Speech (Voice Changer), Voices, Sound Effects and Music. A key without one
    of them gets a "missing permission" error naming it when that feature is used.
 2. `brew install xcodegen && xcodegen generate && open VoiceoverStudio.xcodeproj`
 3. Run on an iOS 26+ simulator or device, open Settings and paste the key. Pick the recording language

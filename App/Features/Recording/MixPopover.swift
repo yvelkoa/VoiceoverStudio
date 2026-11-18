@@ -2,7 +2,7 @@ import AVFoundation
 import SwiftUI
 import VoiceoverKit
 
-/// Levels for the three kinds of audio; changes reach the player immediately.
+/// Levels for the four kinds of audio; changes reach the player immediately.
 struct MixPopover: View {
     @Bindable var project: Project
     let onChange: () -> Void

@@ -4,7 +4,7 @@ import VoiceoverKit
 
 /// What an audio track carries, so the mix can set one level per kind.
 nonisolated enum AudioKind: Hashable, Sendable {
-    case original, voice, effect
+    case original, voice, effect, music
 }
 
 /// One piece of audio laid over the video.

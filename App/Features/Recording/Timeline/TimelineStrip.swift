@@ -17,6 +17,9 @@ struct TimelineStrip: View {
     let characters: [Character]
     let effects: [SoundEffect]
     let onDeleteEffect: (SoundEffect) -> Void
+    /// Drawn on its own lane under the effects, only when there is one.
+    let music: BackgroundMusic?
+    let onDeleteMusic: () -> Void
     /// Export range; the strip outside it is dimmed.
     let trim: ClosedRange<Double>?
     /// The time to show when the player is not running (after a seek, a stop, or on first appearance).
@@ -40,9 +43,11 @@ struct TimelineStrip: View {
     private var pointsPerSecond: CGFloat { Self.pointsPerSecond }
     private var contentWidth: CGFloat { CGFloat(duration) * pointsPerSecond }
     static let effectColor = Color.yellow
+    static let musicColor = Color.mint
 
     private var lanesHeight: CGFloat {
-        CGFloat(max(characters.count, 1) + 1) * (Self.laneHeight + Self.laneSpacing)
+        let lanes = max(characters.count, 1) + 1 + (music == nil ? 0 : 1)
+        return CGFloat(lanes) * (Self.laneHeight + Self.laneSpacing)
     }
 
     var body: some View {
@@ -189,6 +194,35 @@ struct TimelineStrip: View {
                 }
             }
             effectsLane
+            if let music { musicLane(music) }
+        }
+    }
+
+    /// The background track, from the start; the composer cuts it at the video's end.
+    private func musicLane(_ music: BackgroundMusic) -> some View {
+        ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(.quaternary)
+                .frame(width: contentWidth, height: Self.laneHeight)
+            SegmentView(
+                segment: AudioSegment(
+                    takeID: music.id, characterID: music.id, start: 0, sourceOffset: 0,
+                    duration: min(music.duration, duration)
+                ),
+                waveform: waveforms[music.id],
+                color: Self.musicColor,
+                pointsPerSecond: pointsPerSecond
+            )
+            .overlay(alignment: .leading) {
+                Label(music.prompt, systemImage: "music.note")
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .padding(.leading, 4)
+                    .frame(maxWidth: CGFloat(min(music.duration, duration)) * pointsPerSecond - 4, alignment: .leading)
+            }
+            .contextMenu {
+                Button("Remove music", systemImage: "trash", role: .destructive) { onDeleteMusic() }
+            }
         }
     }
 

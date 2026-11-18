@@ -28,6 +28,7 @@ struct EditorView: View {
                     TakesSection(project: model.project, canEdit: !model.isBusy) { model.delete($0) }
                 }
                 if model.player != nil {
+                    MusicSection(model: model)
                     MixSection(project: model.project) { model.applyMix() }
                 }
                 resultSection
@@ -264,6 +265,7 @@ struct EditorView: View {
         switch activity {
         case .generating: String(localized: "Generating voice…")
         case .generatingEffect: String(localized: "Generating sound effect…")
+        case .generatingMusic: String(localized: "Composing music…")
         case .composing: String(localized: "Updating preview…")
         case .exporting: String(localized: "Exporting…")
         case .swapping: String(localized: "Swapping voices…")

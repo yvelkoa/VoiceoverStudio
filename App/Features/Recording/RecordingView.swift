@@ -34,6 +34,8 @@ struct RecordingView: View {
                     characters: model.project.characters,
                     effects: model.project.effects,
                     onDeleteEffect: { model.remove($0) },
+                    music: model.project.music,
+                    onDeleteMusic: { model.removeMusic() },
                     trim: model.project.isTrimmed ? model.project.trimRange : nil,
                     currentTime: currentTime,
                     isPlaying: isPlaying,

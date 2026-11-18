@@ -13,7 +13,7 @@ final class WorkRunner {
     // MARK: - Types
 
     enum Activity: Equatable {
-        case generating, generatingEffect, composing, exporting, swapping, saving
+        case generating, generatingEffect, generatingMusic, composing, exporting, swapping, saving
     }
 
     struct Failure: Identifiable {

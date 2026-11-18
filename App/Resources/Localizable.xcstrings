@@ -456,6 +456,22 @@
         }
       }
     },
+    "Composing music…" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сочиняем музыку…"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Створюємо музику…"
+          }
+        }
+      }
+    },
     "Couldn't load this video." : {
       "localizations" : {
         "ru" : {
@@ -792,6 +808,22 @@
         }
       }
     },
+    "Generate music" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Создать музыку"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Створити музику"
+          }
+        }
+      }
+    },
     "Generate voiceover" : {
       "localizations" : {
         "ru" : {
@@ -836,6 +868,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Створюємо голос…"
+          }
+        }
+      }
+    },
+    "Instrumental, as long as the video. Each generation costs credits." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Без вокала, по длине видео. Каждая генерация расходует кредиты."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Без вокалу, завдовжки з відео. Кожна генерація витрачає кредити."
           }
         }
       }
@@ -932,6 +980,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Режим"
+          }
+        }
+      }
+    },
+    "Music" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Музыка"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Музика"
           }
         }
       }
@@ -1371,6 +1435,22 @@
         }
       }
     },
+    "Remove music" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить музыку"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Видалити музику"
+          }
+        }
+      }
+    },
     "Rename" : {
       "localizations" : {
         "ru" : {
@@ -1399,6 +1479,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Перейменувати проєкт"
+          }
+        }
+      }
+    },
+    "Replace music" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Заменить музыку"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Замінити музику"
           }
         }
       }
@@ -1978,6 +2074,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Напишіть текст, і голос ElevenLabs його прочитає."
+          }
+        }
+      }
+    },
+    "e.g. calm lo-fi piano, slow" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "напр. спокойное lo-fi пианино, медленно"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "напр. спокійне lo-fi піаніно, повільно"
           }
         }
       }

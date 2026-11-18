@@ -27,6 +27,13 @@ nonisolated struct ProjectDocument: Codable {
         var file: String
     }
 
+    struct MusicRecord: Codable {
+        var id: UUID
+        var prompt: String
+        var duration: Double
+        var file: String
+    }
+
     var version = currentVersion
     var id: UUID
     var title: String
@@ -46,6 +53,7 @@ nonisolated struct ProjectDocument: Codable {
     var convertedAudio: [String: String]
     var conversionDrift: [String: Double]
     var effects: [EffectRecord]
+    var music: MusicRecord?
 
     var mix: MixLevels
     var trimStart: Double?
@@ -80,6 +88,7 @@ nonisolated extension ProjectDocument {
         convertedAudio = try c.decodeIfPresent([String: String].self, forKey: .convertedAudio) ?? [:]
         conversionDrift = try c.decodeIfPresent([String: Double].self, forKey: .conversionDrift) ?? [:]
         effects = try c.decodeIfPresent([EffectRecord].self, forKey: .effects) ?? []
+        music = try c.decodeIfPresent(MusicRecord.self, forKey: .music)
         mix = try c.decodeIfPresent(MixLevels.self, forKey: .mix) ?? MixLevels()
         trimStart = try c.decodeIfPresent(Double.self, forKey: .trimStart)
         trimEnd = try c.decodeIfPresent(Double.self, forKey: .trimEnd)

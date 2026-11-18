@@ -15,6 +15,7 @@ flowchart LR
     TM["Type mode: generate()"] --> TTS["POST /v1/text-to-speech/{id}/with-timestamps"]
     SW["swapVoices() → VoiceSwapper"] --> STS["POST /v1/voice-changer/{id}<br/>multipart"]
     EF["addEffect()"] --> SFX["POST /v1/sound-generation"]
+    MU["generateMusic()"] --> MUS["POST /v1/music"]
     V & TTS & STS & SFX --> C["ElevenLabsClient (actor)"]
     C --> T["HTTPTransport<br/>URLSession, 120 s timeout"]
 ```
@@ -25,9 +26,14 @@ flowchart LR
 | `speech(text:voiceID:modelID:settings:)` | `POST /v1/text-to-speech/{id}/with-timestamps` | `eleven_multilingual_v2`, returns MP3 + per-character times |
 | `changeVoice(audio:fileName:mimeType:voiceID:modelID:settings:removeBackgroundNoise:)` | `POST /v1/voice-changer/{id}` | `eleven_multilingual_sts_v2`, multipart |
 | `soundEffect(prompt:durationSeconds:)` | `POST /v1/sound-generation` | |
+| `music(prompt:seconds:)` | `POST /v1/music` | default model, `force_instrumental`, length clamped to 3 s – 10 min, 300 s timeout |
 
 Output format is `mp3_44100_128` everywhere. The 120 s timeout exists because the voice changer uploads a whole
-take and waits for the conversion.
+take and waits for the conversion; music asks for 300 s on its request, because composing takes longer still.
+
+Background music is composed once at the video's length and laid from 0 s on its own track with its own level
+(`MixLevels.music`, 30 % by default so it sits under the voice). It is always instrumental: a sung track would
+fight the voiceover and its captions. A new video drops it, as it drops the effects.
 
 ## 2. Key handling
 
@@ -50,6 +56,7 @@ The key is read through a closure, so a key change needs no new client. Removing
 | Speech to Speech (Voice Changer) | voice swap |
 | Voices | picker, verification |
 | Sound Effects | effects lane |
+| Music | background music |
 
 > **Decision.** HTTP 401 with `detail.status == "missing_permissions"` maps to
 > `ElevenLabsError.missingPermission(message)` and shows the server's message, which names the permission.

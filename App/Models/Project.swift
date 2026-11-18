@@ -32,6 +32,7 @@ final class Project: Identifiable {
     private(set) var waveforms: [UUID: Waveform] = [:]
 
     private(set) var effects: [SoundEffect] = []
+    private(set) var music: BackgroundMusic?
 
     /// Mix levels, 0...1. Used by the preview and the export alike.
     var mix = MixLevels()
@@ -96,6 +97,9 @@ final class Project: Identifiable {
                 id: $0.id, prompt: $0.prompt, start: $0.start, duration: $0.duration, audio: folder.appending(path: $0.file)
             )
         }
+        music = document.music.map {
+            BackgroundMusic(id: $0.id, prompt: $0.prompt, duration: $0.duration, audio: folder.appending(path: $0.file))
+        }
         mix = document.mix
         trimStart = document.trimStart
         trimEnd = document.trimEnd
@@ -131,6 +135,7 @@ final class Project: Identifiable {
             effects: effects.map {
                 .init(id: $0.id, prompt: $0.prompt, start: $0.start, duration: $0.duration, file: $0.audio.lastPathComponent)
             },
+            music: music.map { .init(id: $0.id, prompt: $0.prompt, duration: $0.duration, file: $0.audio.lastPathComponent) },
             mix: mix,
             trimStart: trimStart,
             trimEnd: trimEnd,
@@ -177,6 +182,8 @@ final class Project: Identifiable {
         trimEnd = nil
         for effect in effects { try? FileManager.default.removeItem(at: effect.audio) }
         effects.removeAll()
+        // Composed for the old video's length.
+        removeMusic()
         for take in takes { try? FileManager.default.removeItem(at: take.recording) }
         for converted in convertedAudio.values { try? FileManager.default.removeItem(at: converted) }
         takes.removeAll()
@@ -291,6 +298,21 @@ final class Project: Identifiable {
     func move(_ effect: SoundEffect, to start: Double) {
         guard let index = effects.firstIndex(where: { $0.id == effect.id }) else { return }
         effects[index].start = min(max(start, 0), max(videoDuration - effect.duration, 0))
+    }
+
+    // MARK: - Music
+
+    /// Replaces the current track, deleting its file.
+    func setMusic(_ new: BackgroundMusic) {
+        removeMusic()
+        music = new
+    }
+
+    func removeMusic() {
+        guard let music else { return }
+        waveforms[music.id] = nil
+        try? FileManager.default.removeItem(at: music.audio)
+        self.music = nil
     }
 
     /// Takes whose converted audio is missing or stale.

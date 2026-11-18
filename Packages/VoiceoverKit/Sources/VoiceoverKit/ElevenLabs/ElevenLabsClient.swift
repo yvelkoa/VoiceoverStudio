@@ -79,6 +79,27 @@ public actor ElevenLabsClient {
         return try await perform(path: "/v1/sound-generation", method: "POST", json: body)
     }
 
+    /// Instrumental music composed from a text prompt, `seconds` long (the API accepts 3 s to 10 min).
+    /// Returns MP3 data. Composing takes a while, so the request waits longer than the others.
+    public func music(prompt: String, seconds: Double) async throws -> Data {
+        let milliseconds = Int((min(max(seconds, Self.musicLength.lowerBound), Self.musicLength.upperBound) * 1000).rounded())
+        let body: [String: any Sendable] = [
+            "prompt": prompt,
+            "music_length_ms": milliseconds,
+            "force_instrumental": true,
+        ]
+        return try await perform(
+            path: "/v1/music",
+            query: [URLQueryItem(name: "output_format", value: Self.outputFormat)],
+            method: "POST",
+            json: body,
+            timeout: 300
+        )
+    }
+
+    /// Lengths the music endpoint accepts, in seconds.
+    public static let musicLength: ClosedRange<Double> = 3...600
+
     /// Speech to speech: the same words, timing and emotion as `audio`, spoken by `voiceID`. Returns MP3 data.
     /// Timing is preserved closely but not exactly; callers should compare durations.
     public func changeVoice(
@@ -112,14 +133,16 @@ public actor ElevenLabsClient {
         path: String,
         query: [URLQueryItem] = [],
         method: String,
-        json: [String: any Sendable]? = nil
+        json: [String: any Sendable]? = nil,
+        timeout: TimeInterval? = nil
     ) async throws -> Data {
         try await perform(
             path: path,
             query: query,
             method: method,
             body: json.map { try JSONSerialization.data(withJSONObject: $0) },
-            contentType: json == nil ? nil : "application/json"
+            contentType: json == nil ? nil : "application/json",
+            timeout: timeout
         )
     }
 
@@ -128,7 +151,8 @@ public actor ElevenLabsClient {
         query: [URLQueryItem],
         method: String,
         body: Data?,
-        contentType: String?
+        contentType: String?,
+        timeout: TimeInterval? = nil
     ) async throws -> Data {
         guard let key = apiKey(), !key.isEmpty else { throw ElevenLabsError.missingAPIKey }
 
@@ -140,6 +164,7 @@ public actor ElevenLabsClient {
 
         var request = URLRequest(url: url)
         request.httpMethod = method
+        if let timeout { request.timeoutInterval = timeout }
         request.setValue(key, forHTTPHeaderField: "xi-api-key")
         if let body {
             request.setValue(contentType, forHTTPHeaderField: "Content-Type")
