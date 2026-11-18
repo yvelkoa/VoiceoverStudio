@@ -77,15 +77,17 @@ final class TakeRecorder {
         let center = NotificationCenter.default
         let session = AVAudioSession.sharedInstance()
         sessionObservers = [
-            center.addObserver(forName: AVAudioSession.interruptionNotification, object: session, queue: nil) { note in
+            center.addObserver(
+                forName: AVAudioSession.interruptionNotification, object: session, queue: nil
+            ) { [weak self] note in
                 let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
                 guard raw == AVAudioSession.InterruptionType.began.rawValue else { return }
-                Task { @MainActor [weak self] in self?.interrupted() }
+                Task { @MainActor in self?.interrupted() }
             },
-            center.addObserver(forName: AVAudioSession.routeChangeNotification, object: session, queue: nil) { note in
+            center.addObserver(forName: AVAudioSession.routeChangeNotification, object: session, queue: nil) { [weak self] note in
                 let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
                 guard raw == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue else { return }
-                Task { @MainActor [weak self] in self?.interrupted() }
+                Task { @MainActor in self?.interrupted() }
             },
         ]
     }
