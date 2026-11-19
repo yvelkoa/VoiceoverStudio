@@ -13,16 +13,16 @@ extension EditorModel {
         let retry: @MainActor () -> Void = { [weak self] in
             self?.addEffect(prompt: trimmed, durationSeconds: durationSeconds, at: start)
         }
-        run(.generatingEffect, retry: retry, operation: { [client, project] in
+        run(.generatingEffect, retry: retry, operation: { [client, project, services] in
             let data = try await client.soundEffect(prompt: trimmed, durationSeconds: durationSeconds)
             let url = try await Self.write(data, to: project.fileURL("effect", extension: "mp3"))
-            let duration = try await AVURLAsset(url: url).load(.duration).seconds
+            let duration = try await services.duration(url)
 
             let effect = SoundEffect(id: UUID(), prompt: trimmed, start: start, duration: duration, audio: url)
             project.add(effect)
             try await self.compose(videoURL: videoURL)
 
-            if let waveform = try? await Waveform.load(url) { project.setWaveform(waveform, for: effect.id) }
+            if let waveform = try? await services.waveform(url) { project.setWaveform(waveform, for: effect.id) }
         })
     }
 

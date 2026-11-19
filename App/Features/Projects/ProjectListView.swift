@@ -4,7 +4,8 @@ import SwiftUI
 struct ProjectListView: View {
     @Environment(AppModel.self) private var app
 
-    @State private var path: [UUID] = []
+    /// Holds `AppRoute`s pushed here and `EditorRoute`s pushed from inside an open project.
+    @State private var path = NavigationPath()
     @State private var showsSettings = false
     @State private var renaming: ProjectSummary?
     @State private var newTitle = ""
@@ -24,7 +25,7 @@ struct ProjectListView: View {
                 } else {
                     List {
                         ForEach(app.store.summaries) { summary in
-                            NavigationLink(value: summary.id) { ProjectRow(summary: summary) }
+                            NavigationLink(value: AppRoute.project(summary.id)) { ProjectRow(summary: summary) }
                                 .contextMenu {
                                     Button("Rename", systemImage: "pencil") {
                                         newTitle = summary.title
@@ -48,8 +49,10 @@ struct ProjectListView: View {
                     Button("New project", systemImage: "plus") { createProject() }
                 }
             }
-            .navigationDestination(for: UUID.self) { id in
-                ProjectScreen(projectID: id)
+            .navigationDestination(for: AppRoute.self) { route in
+                switch route {
+                case .project(let id): ProjectScreen(projectID: id)
+                }
             }
             .sheet(isPresented: $showsSettings) { SettingsView() }
             .alert("Rename project", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
@@ -67,7 +70,7 @@ struct ProjectListView: View {
 
     private func createProject() {
         let project = app.store.create()
-        path.append(project.id)
+        path.append(AppRoute.project(project.id))
     }
 
     /// With `VOICEOVER_DEBUG_VIDEO` set, open a fresh project straight away; the editor loads the video.
@@ -77,4 +80,14 @@ struct ProjectListView: View {
         createProject()
         #endif
     }
+}
+
+#Preview("Projects") {
+    ProjectListView()
+        .environment(AppModel.preview(projects: ["Trailer", "Cooking show"]))
+}
+
+#Preview("Empty") {
+    ProjectListView()
+        .environment(AppModel.preview())
 }

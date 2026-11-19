@@ -10,13 +10,18 @@ import VoiceoverKit
 final class EditPlayer {
     private(set) var player: AVPlayer?
     private(set) var composed: ComposedVideo?
+    private let composer: @Sendable (URL, [AudioClip]) async throws -> sending ComposedVideo
+
+    init(compose: @escaping @Sendable (URL, [AudioClip]) async throws -> sending ComposedVideo) {
+        composer = compose
+    }
 
     /// Builds the edit from `clips` over `video` and puts it on the player, resuming where it was.
     func compose(video: URL, clips: [AudioClip], mix: MixLevels) async throws {
         let wasPlaying = player?.rate ?? 0 > 0
         let resumeAt = player?.currentTime()
 
-        let composed = try await VideoComposer.compose(video: video, clips: clips)
+        let composed = try await composer(video, clips)
         try Task.checkCancellation()
 
         // No video composition for the preview: AVPlayer applies the track's preferredTransform itself and

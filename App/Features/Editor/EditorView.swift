@@ -3,14 +3,19 @@ import SwiftUI
 import VoiceoverKit
 
 struct EditorView: View {
+    /// The full-screen modes of the editor. One optional value, so two can never be up at once.
+    enum Cover: String, Identifiable {
+        case recorder, preview
+        var id: String { rawValue }
+    }
+
     @Bindable var model: EditorModel
     @Environment(AppModel.self) private var app
 
     @State var pickedItem: PhotosPickerItem?
     @State var isLoadingVideo = false
     @State var showsSettings = false
-    @State var showsRecorder = false
-    @State var showsPreview = false
+    @State var cover: Cover?
 
     var body: some View {
         Group {
@@ -43,14 +48,15 @@ struct EditorView: View {
             }
             .safeAreaInset(edge: .bottom) { primaryButton }
             .sheet(isPresented: $showsSettings) { SettingsView() }
-            .fullScreenCover(isPresented: $showsRecorder) { RecordingView(model: model) }
-            .fullScreenCover(isPresented: $showsPreview) {
-                if let player = model.player {
-                    PreviewScreen(
-                        player: player,
-                        captions: model.captions,
-                        range: model.project.isTrimmed ? model.project.trimRange : nil
-                    )
+            .fullScreenCover(item: $cover) { cover in
+                switch cover {
+                case .recorder: RecordingView(model: model)
+                case .preview: EditPreview(model: model)
+                }
+            }
+            .navigationDestination(for: EditorRoute.self) { route in
+                switch route {
+                case .voice(let target): VoicePickerView(client: model.client, selection: voiceBinding(target))
                 }
             }
             .alert(
@@ -71,7 +77,7 @@ struct EditorView: View {
         #if DEBUG
         guard let path = ProcessInfo.processInfo.environment["VOICEOVER_DEBUG_VIDEO"], model.videoURL == nil else { return }
         await model.setVideo(URL(fileURLWithPath: path))
-        showsRecorder = true
+        cover = .recorder
         #endif
     }
 
@@ -128,9 +134,7 @@ struct EditorView: View {
         Section {
             TextField("What should the voice say?", text: $model.script, axis: .vertical)
                 .lineLimit(3...8)
-            NavigationLink {
-                VoicePickerView(client: model.client, selection: $model.voice)
-            } label: {
+            NavigationLink(value: EditorRoute.voice(.script)) {
                 LabeledContent("Voice", value: model.voice?.name ?? String(localized: "Choose"))
             }
         } header: {
@@ -156,7 +160,7 @@ struct EditorView: View {
                     Text(model.mode == .type ? "Generate a voiceover to export." : "Record a take to export.")
                         .foregroundStyle(.secondary)
                 } else if model.mode == .record {
-                    Button("Preview", systemImage: "play.rectangle") { showsPreview = true }
+                    Button("Preview", systemImage: "play.rectangle") { cover = .preview }
                     if model.project.isTrimmed {
                         let range = model.project.trimRange
                         LabeledContent("Export range") {
@@ -203,7 +207,7 @@ struct EditorView: View {
                 case .record:
                     HStack(spacing: 12) {
                         Button {
-                            showsRecorder = true
+                            cover = .recorder
                         } label: {
                             Label(recordTitle, systemImage: "record.circle").frame(maxWidth: .infinity)
                         }
@@ -264,4 +268,12 @@ struct EditorView: View {
         case .saving: String(localized: "Saving to Photos…")
         }
     }
+}
+
+#Preview("New project") {
+    let app = AppModel.preview()
+    NavigationStack {
+        EditorView(model: app.editor(for: app.store.create()))
+    }
+    .environment(app)
 }

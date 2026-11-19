@@ -19,14 +19,16 @@ final class EditorModel {
 
     let project: Project
     let client: ElevenLabsClient
+    /// Media and system work: composing, export, Photos, transcription, waveforms. See `EditorServices`.
+    let services: EditorServices
     /// One take at a time, from Record to Stop, including the player's part in it.
     let recording = RecordingSession()
     /// Runs every step in its slot (compose vs. job) and holds the activity and failure the UI shows.
     private let work = WorkRunner()
     /// Owns the AVPlayer and the composed edit; the model only decides when and from which clips to rebuild.
-    let edit = EditPlayer()
+    let edit: EditPlayer
     /// One recogniser task per take; words come back through `onWords`.
-    let transcriptions = TranscriptionQueue()
+    let transcriptions: TranscriptionQueue
     private var autosaver: ProjectAutosaver?
 
     // MARK: - Project-backed state (stored on the project so it survives relaunch)
@@ -60,6 +62,8 @@ final class EditorModel {
     var speechFile: URL? { project.speechFile }
     var exportedURL: URL? { project.exportedURL }
     var trimmedScript: String { script.trimmingCharacters(in: .whitespacesAndNewlines) }
+    /// The part of the video an export covers, or nil for all of it. The preview plays the same range.
+    var exportRange: ClosedRange<Double>? { project.isTrimmed ? project.trimRange : nil }
 
     // MARK: - Output (written by the model and its extensions; views only read it)
 
@@ -91,9 +95,12 @@ final class EditorModel {
 
     // MARK: - Lifetime
 
-    init(project: Project, client: ElevenLabsClient, store: ProjectStore?) {
+    init(project: Project, client: ElevenLabsClient, store: ProjectStore?, services: EditorServices = .live) {
         self.project = project
         self.client = client
+        self.services = services
+        edit = EditPlayer(compose: services.compose)
+        transcriptions = TranscriptionQueue(services: services)
         if let store { autosaver = ProjectAutosaver(project: project, store: store) }
 
         // A call or an unplugged headset ends the take the same way Stop does, keeping what was recorded.
@@ -136,10 +143,11 @@ final class EditorModel {
 
         let sources = project.takes.map { ($0.id, $0.recording) } + project.effects.map { ($0.id, $0.audio) }
             + (project.music.map { [($0.id, $0.audio)] } ?? [])
+        let waveform = services.waveform
         waveformTask = Task(priority: .utility) { [project] in
             await withTaskGroup { group in
                 for (id, url) in sources {
-                    group.addTask { try? await Waveform.load(url) }
+                    group.addTask { try? await waveform(url) }
                     // One at a time keeps the decoder from competing with the player that just started.
                     if let waveform = await group.next(), let waveform { project.setWaveform(waveform, for: id) }
                 }
@@ -208,12 +216,12 @@ final class EditorModel {
             return
         }
 
-        let duration = (try? await AVURLAsset(url: destination).load(.duration).seconds) ?? 0
+        let duration = (try? await services.duration(destination)) ?? 0
         project.setVideo(destination, duration: duration)
         recompose()
 
         let thumbnail = project.folder.appending(path: ProjectDocument.thumbnailName)
-        Task { try? await Thumbnail.write(for: destination, to: thumbnail) }
+        Task { [services] in try? await services.writeThumbnail(destination, thumbnail) }
     }
 
     // MARK: - The edit

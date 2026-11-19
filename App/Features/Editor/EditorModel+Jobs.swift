@@ -47,10 +47,8 @@ extension EditorModel {
             guard let self else { return }
             if exportedURL == output { saveToPhotos() } else { export() }
         }
-        run(.exporting, retry: retry, operation: { [project] in
-            let exported = try await VideoComposer.export(
-                composed, captions: captions, levels: levels, range: range, to: output
-            )
+        run(.exporting, retry: retry, operation: { [project, services] in
+            let exported = try await services.export(composed, captions, levels, range, output)
 
             // The previous export goes only once the new one exists; a failed export must not lose both.
             project.clearExport()
@@ -58,7 +56,7 @@ extension EditorModel {
             ProjectStore.excludeFromBackup(exported)
 
             // Straight into the library: that is where the result is wanted.
-            try await PhotosSaver.save(output)
+            try await services.saveToPhotos(output)
             self.savedToPhotos = true
         })
     }
@@ -67,8 +65,8 @@ extension EditorModel {
     func saveToPhotos() {
         guard let url = exportedURL, !isBusy else { return }
 
-        run(.saving, retry: { [weak self] in self?.saveToPhotos() }, operation: {
-            try await PhotosSaver.save(url)
+        run(.saving, retry: { [weak self] in self?.saveToPhotos() }, operation: { [services] in
+            try await services.saveToPhotos(url)
             self.savedToPhotos = true
         })
     }

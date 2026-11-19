@@ -6,6 +6,11 @@ import VoiceoverKit
 /// stops its recogniser too.
 final class TranscriptionQueue {
     private var tasks: [Take.ID: Task<Void, Never>] = [:]
+    private let services: EditorServices
+
+    init(services: EditorServices) {
+        self.services = services
+    }
 
     /// Words for a take, timed from the start of its recording.
     var onWords: ((Take.ID, [TimedWord]) -> Void)?
@@ -16,13 +21,15 @@ final class TranscriptionQueue {
         cancelAll()
     }
 
-    func transcribe(_ take: Take, locale: Locale = RecordingLanguage.locale) {
+    func transcribe(_ take: Take) {
+        let locale = services.recordingLocale()
+        let transcribe = services.transcribe
         tasks[take.id]?.cancel()
         tasks[take.id] = Task {
             defer { tasks[take.id] = nil }
 
             do {
-                let words = try await Transcriber.words(in: take.recording, locale: locale)
+                let words = try await transcribe(take.recording, locale)
                 guard !Task.isCancelled else { return }
                 onWords?(take.id, words)
             } catch is CancellationError {

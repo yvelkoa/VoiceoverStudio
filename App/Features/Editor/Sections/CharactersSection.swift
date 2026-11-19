@@ -49,9 +49,7 @@ private struct CharacterRow: View {
                 .frame(maxWidth: .infinity)
 
             // The voice name can be long ("Adam - Dominant, Firm"); it yields to the name field and truncates.
-            NavigationLink {
-                VoicePickerView(client: model.client, selection: voiceBinding)
-            } label: {
+            NavigationLink(value: EditorRoute.voice(.character(character.id))) {
                 Text(character.voice?.name ?? String(localized: "Voice"))
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -69,17 +67,6 @@ private struct CharacterRow: View {
             set: { name in
                 guard var updated = project.character(character.id) else { return }
                 updated.name = name
-                model.update(updated)
-            }
-        )
-    }
-
-    private var voiceBinding: Binding<Voice?> {
-        Binding(
-            get: { project.character(character.id)?.voice },
-            set: { voice in
-                guard var updated = project.character(character.id) else { return }
-                updated.voice = voice
                 model.update(updated)
             }
         )

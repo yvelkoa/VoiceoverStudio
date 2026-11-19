@@ -91,3 +91,8 @@ struct SettingsView: View {
         }
     }
 }
+
+#Preview("No key") {
+    SettingsView()
+        .environment(AppModel.preview(apiKey: nil))
+}

@@ -23,7 +23,7 @@ struct ProjectScreen: View {
             try? await Task.sleep(for: .milliseconds(300))
             do {
                 let project = try await app.store.loadInBackground(projectID)
-                model = EditorModel(project: project, client: app.client, store: app.store)
+                model = app.editor(for: project)
             } catch {
                 failed = true
             }

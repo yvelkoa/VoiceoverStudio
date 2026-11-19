@@ -42,14 +42,15 @@ stays in the app.
 
 The app has its own test target, `AppTests`, hosted in the app on the simulator. It covers what the review found
 bugs in: `WorkRunner`'s two slots and deferred steps, the autosaver (including the save loop), `ProjectStore`,
-`Project`'s file lifecycle, edits routed through `EditorModel`, and that translations reach the built app.
-Media (recording, composing, export) is not unit-tested.
+`Project`'s file lifecycle, edits routed through `EditorModel`, the jobs (export and its retry, music, transcription)
+against stub `EditorServices`, the key handling in `AppModel`, and that translations reach the built app.
+AVFoundation itself (recording, composing, rendering) is not unit-tested.
 
 ## 2. Folders
 
 ```
 App/
-  App/           VoiceoverStudioApp (entry), AppModel (API key, store, client), APIKeyStore
+  App/           VoiceoverStudioApp (entry), AppModel (composition root), APIKeyStore, PreviewSupport
   Models/        Project (the edit), SoundEffect, BackgroundMusic, LiveRecording
   Persistence/   ProjectDocument (on-disk shape), ProjectStore, ProjectAutosaver, ProjectSummary, EditingMode
   Media/
@@ -59,10 +60,11 @@ App/
     Video/       FrameStrip, Thumbnail, PhotosSaver, PickedMovie, PlaybackEndWatcher
     ElevenLabs/  VoiceSwapper
   Features/
+    Navigation/  AppRoute, EditorRoute, VoiceTarget
     Projects/    ProjectListView (root), ProjectRow, ProjectScreen (loads a project, owns its EditorModel)
-    Editor/      EditorView (+Helpers), EditorModel (+Recording, +Effects, +Music, +Jobs), WorkRunner, EditPlayer, RecordingSession, TranscriptionQueue, Sections/
+    Editor/      EditorView (+Helpers), EditorModel (+Recording, +Effects, +Music, +Jobs), EditorServices, WorkRunner, EditPlayer, RecordingSession, TranscriptionQueue, Sections/
     Recording/   RecordingView (full-screen recorder), EffectSheet, MixPopover, Timeline/{TimelineStrip, SegmentView}
-    Preview/     PreviewScreen, PreviewPlayer, CaptionOverlay, PlayerLayerView, AVPlayer+TimeUpdates
+    Preview/     EditPreview, PreviewScreen, PreviewPlayer, CaptionOverlay, PlayerLayerView, AVPlayer+TimeUpdates
     Settings/    SettingsView
     Voices/      VoicePickerView
 Packages/VoiceoverKit/Sources/VoiceoverKit/
@@ -78,7 +80,46 @@ Conventions:
 - `X+Y.swift` is an extension of `X` grouping the `Y` concern. Members it needs are `internal`, not `private`,
   on purpose.
 
-## 3. Who owns what
+## 3. Dependencies and navigation
+
+```mermaid
+flowchart LR
+    App[VoiceoverStudioApp] -->|"@State, environment"| AM[AppModel]
+    AM -->|injects| KS[APIKeyStoring]
+    AM -->|injects| ST[ProjectStore]
+    AM -->|injects| TR[HTTPTransport] --> CL[ElevenLabsClient]
+    AM -->|injects| SV[EditorServices]
+    AM -->|"editor(for:)"| EM[EditorModel]
+    SV --> EM
+    CL --> EM
+```
+
+`AppModel` is the composition root. Everything it holds comes in through `init` with a live default, and it has
+no side effects (the audio session is configured in the app's `init`). Views read it from the environment;
+`ProjectScreen` asks it for an editor with `editor(for:)`, so no view assembles dependencies itself.
+
+| Seam | Live | Replaced in |
+|---|---|---|
+| `APIKeyStoring` | Keychain (`APIKeyStore`) | tests, previews (`InMemoryKeyStore`) |
+| `ProjectStore(root:)` | `Documents/Projects` | tests, previews (a temporary folder) |
+| `HTTPTransport` | `URLSession` | package and app tests (stub responses) |
+| `EditorServices` | AVFoundation, Photos, Speech | app tests (`EditorServices.stub`) |
+
+> **Decision.** `EditorServices` is a struct of `@Sendable` closures, not a set of protocols.
+> **Why.** Each test replaces one or two operations (fail the Photos save once, record the clips handed to the
+> composer) and keeps the rest. A protocol per service would need a fake type per test.
+> **Rejected.** A dependency-injection library. The app has one composition root and four seams.
+
+**Navigation.** The root `NavigationStack` owns a `NavigationPath` of values. `AppRoute.project(id)` is pushed
+from the list and resolved at the root; `EditorRoute.voice(target)` is pushed from inside a project and resolved
+by `EditorView`, the only place that has the model the picker writes to. Every pushed screen is on the path, so
+a screen can be opened from code (a new project, the debug hook) the same way a tap opens it.
+
+Modal screens are one optional value per screen: `EditorView.Cover` (recorder or preview) for full-screen covers,
+plus the Settings sheet. Two covers cannot be requested at once, and `EditPreview` is the one place a preview of
+the edit is built.
+
+## 4. Who owns what
 
 ```mermaid
 flowchart LR
@@ -120,7 +161,7 @@ flowchart LR
 `Project` mutates state, deletes files it no longer references, and knows nothing about AVFoundation, networking
 or Observation beyond being `@Observable`.
 
-## 4. A session, end to end
+## 5. A session, end to end
 
 ```mermaid
 sequenceDiagram
@@ -157,7 +198,7 @@ sequenceDiagram
 Every mutation of `Project` along the way is picked up by the autosaver and the manifest is rewritten
 atomically (see [persistence.md](persistence.md)).
 
-## 5. Activities, slots and the state machine
+## 6. Activities, slots and the state machine
 
 ```mermaid
 stateDiagram-v2
@@ -206,7 +247,7 @@ Consequences:
 > **Why.** A failure is stored on the model. A retry that captured the operation would capture `self` through it,
 > and the editor would never deinit after its screen was popped.
 
-## 6. Modes
+## 7. Modes
 
 ```mermaid
 flowchart LR

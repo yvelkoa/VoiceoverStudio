@@ -33,8 +33,8 @@ extension EditorModel {
         rebuildCaptions()
         recompose()
         transcriptions.transcribe(take)
-        Task { [project] in
-            if let waveform = try? await Waveform.load(take.recording) { project.setWaveform(waveform, for: take.id) }
+        Task { [project, services] in
+            if let waveform = try? await services.waveform(take.recording) { project.setWaveform(waveform, for: take.id) }
         }
     }
 

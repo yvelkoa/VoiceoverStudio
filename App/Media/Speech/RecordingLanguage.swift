@@ -3,7 +3,7 @@ import Speech
 import VoiceoverKit
 
 /// The language takes are spoken in. Stored in UserDefaults; defaults to the device language.
-enum RecordingLanguage {
+nonisolated enum RecordingLanguage {
     static let key = "recordingLanguage"
     static let choices = ["en-US", "ru-RU", "uk-UA", "de-DE", "es-ES", "fr-FR", "it-IT", "pt-BR", "ja-JP"]
 

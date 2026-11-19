@@ -37,7 +37,7 @@ struct RecordingView: View {
                     onDeleteEffect: { model.remove($0) },
                     music: model.project.music,
                     onDeleteMusic: { model.removeMusic() },
-                    trim: model.project.isTrimmed ? model.project.trimRange : nil,
+                    trim: model.exportRange,
                     currentTime: currentTime,
                     isPlaying: isPlaying,
                     isLocked: model.isRecording,
@@ -76,15 +76,7 @@ struct RecordingView: View {
                     Button("Done") { dismiss() }.disabled(model.isRecording)
                 }
             }
-            .fullScreenCover(isPresented: $showsPreview) {
-                if let player = model.player {
-                    PreviewScreen(
-                        player: player,
-                        captions: model.captions,
-                        range: model.project.isTrimmed ? model.project.trimRange : nil
-                    )
-                }
-            }
+            .fullScreenCover(isPresented: $showsPreview) { EditPreview(model: model) }
             .sheet(isPresented: $showsEffectSheet) {
                 EffectSheet(start: currentTime) { prompt, seconds in
                     model.addEffect(prompt: prompt, durationSeconds: seconds, at: currentTime)

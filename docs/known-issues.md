@@ -40,6 +40,8 @@ flowchart LR
 | Transcription errors surface as an alert with Retry | works | a quieter inline state per take |
 | Edits are **disabled** while a job runs (`isBusy`) rather than queued | simpler; a swap takes seconds | queue if jobs get long |
 | `Waveform` and `FrameStrip` recomputed per open | utility priority, barely visible | cache on disk |
+| The microphone (`RecordingSession`) and the frame strip are not behind `EditorServices` | they need real hardware or real video to mean anything | a `Recorder` protocol if recording logic grows |
+| Root path is a `NavigationPath`, not a `Codable` array | two route types (app and editor); nothing restores a path yet | encode it with `NavigationPath.CodableRepresentation` for state restoration |
 
 ## 3. Not done yet
 
@@ -47,8 +49,8 @@ flowchart LR
 
 - `project.pbxproj` is committed next to `project.yml`. With xcodegen the usual choice is one or the other; both
   means they drift whenever someone forgets `xcodegen generate`.
-- App tests cover state and files (`AppTests/`), not media: recording, composing, export and transcription
-  are still checked by hand on a device.
+- App tests run the editor's jobs against stub `EditorServices`; AVFoundation itself (recording, composing,
+  rendering, recognising speech) is still checked by hand on a device.
 - Project names and the default character name are stored in the language the project was created in;
   switching the device language does not rename them.
 

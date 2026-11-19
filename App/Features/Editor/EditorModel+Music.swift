@@ -14,16 +14,16 @@ extension EditorModel {
         let seconds = musicLength
 
         let retry: @MainActor () -> Void = { [weak self] in self?.generateMusic(prompt: trimmed) }
-        run(.generatingMusic, retry: retry, operation: { [client, project] in
+        run(.generatingMusic, retry: retry, operation: { [client, project, services] in
             let data = try await client.music(prompt: trimmed, seconds: seconds)
             let url = try await Self.write(data, to: project.fileURL("music", extension: "mp3"))
-            let duration = try await AVURLAsset(url: url).load(.duration).seconds
+            let duration = try await services.duration(url)
 
             let music = BackgroundMusic(prompt: trimmed, duration: duration, audio: url)
             project.setMusic(music)
             try await self.compose(videoURL: videoURL)
 
-            if let waveform = try? await Waveform.load(url) { project.setWaveform(waveform, for: music.id) }
+            if let waveform = try? await services.waveform(url) { project.setWaveform(waveform, for: music.id) }
         })
     }
 

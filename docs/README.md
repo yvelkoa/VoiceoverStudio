@@ -14,12 +14,12 @@ flowchart LR
     C --> F[elevenlabs.md]
     D --> F
     B & C & D & E & F --> G[known-issues.md]
-    G --> H[review-2026-11-03.md]
+    G --> H[review-2026-11-03.md] --> I[review-2026-11-18.md]
 ```
 
 | File | What it answers |
 |---|---|
-| [architecture.md](architecture.md) | Layers, folders, who owns what, how a session flows, the job state machine |
+| [architecture.md](architecture.md) | Layers, folders, dependency injection and navigation, who owns what, how a session flows, the job state machine |
 | [concurrency.md](concurrency.md) | Swift 6 strict concurrency: isolation defaults, `nonisolated`, `@concurrent`, `sending`, actors, `isolated deinit` |
 | [media-pipeline.md](media-pipeline.md) | AVFoundation: composition, clips and tracks, the live mix, preview vs export, rotation, captions, audio session |
 | [takes-and-timeline.md](takes-and-timeline.md) | Takes, characters, overlap resolution, recording, waveforms, transcription, voice swap, the scrubber |
@@ -28,6 +28,7 @@ flowchart LR
 | [localization.md](localization.md) | String catalogs, the English/Russian/Ukrainian tables, plurals, how to add a string |
 | [known-issues.md](known-issues.md) | Limits, shortcuts and debt, with the reason each one is still there |
 | [review-2026-11-03.md](review-2026-11-03.md) | Full code review and what was done about each finding |
+| [review-2026-11-18.md](review-2026-11-18.md) | Architecture review before publishing: navigation, DI, the music and auto-stop features |
 
 ## Vocabulary
 
