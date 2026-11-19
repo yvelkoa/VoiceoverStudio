@@ -116,7 +116,8 @@ public actor ElevenLabsClient {
         form.addField("model_id", value: modelID)
         form.addField("remove_background_noise", value: removeBackgroundNoise ? "true" : "false")
         if let settings {
-            form.addField("voice_settings", value: String(decoding: try JSONEncoder().encode(settings), as: UTF8.self))
+            let json = try JSONEncoder().encode(settings)
+            form.addField("voice_settings", value: String(bytes: json, encoding: .utf8) ?? "{}")
         }
         return try await perform(
             path: "/v1/voice-changer/\(voiceID)",

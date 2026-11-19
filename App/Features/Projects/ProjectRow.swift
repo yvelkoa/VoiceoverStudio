@@ -8,7 +8,7 @@ struct ProjectRow: View {
         HStack(spacing: 12) {
             Group {
                 if let image {
-                    Image(uiImage: image).resizable().aspectRatio(contentMode: .fill)
+                    Image(uiImage: image).resizable().scaledToFill()
                 } else if !summary.isReadable {
                     Image(systemName: "exclamationmark.triangle").font(.title2).foregroundStyle(.orange)
                 } else {

@@ -19,7 +19,7 @@ struct PlayerLayerView: UIViewRepresentable {
     }
 
     final class LayerHostView: UIView {
-        override class var layerClass: AnyClass { AVPlayerLayer.self }
+        override static var layerClass: AnyClass { AVPlayerLayer.self }
         var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer } // swiftlint:disable:this force_cast
     }
 }

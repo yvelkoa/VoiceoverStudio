@@ -69,7 +69,8 @@ struct ElevenLabsClientTests {
         #expect(contentType.hasPrefix("multipart/form-data; boundary="))
 
         let body = try #require(request.httpBody)
-        let text = String(decoding: body, as: UTF8.self)
+        // Lossy on purpose: the body embeds binary audio that is not valid UTF-8.
+        let text = String(decoding: body, as: UTF8.self) // swiftlint:disable:this optional_data_string_conversion
         let filePart = "Content-Disposition: form-data; name=\"audio\"; filename=\"take.m4a\"\r\nContent-Type: audio/mp4\r\n\r\n"
         #expect(text.contains(filePart))
         #expect(text.contains("name=\"model_id\"\r\n\r\neleven_multilingual_sts_v2\r\n"))
