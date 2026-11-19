@@ -9,7 +9,15 @@ jobs:
   test:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      # The image's default Xcode is older: its SwiftPM copies string catalogs instead of compiling them, so the
+      # package's translations go missing. Pick the newest Xcode 27, the version the project is built with.
+      - name: Select Xcode 27
+        run: |
+          xcode=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$xcode" ]; then ls -d /Applications/Xcode*.app; echo "No Xcode 27 on this image"; exit 1; fi
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
       - name: SwiftLint
         run: |
           brew install swiftlint
