@@ -15,6 +15,7 @@ struct EditorView: View {
     @State var pickedItem: PhotosPickerItem?
     @State var isLoadingVideo = false
     @State var showsSettings = false
+    @State var showsSoundIdeas = false
     @State var cover: Cover?
 
     var body: some View {
@@ -33,6 +34,7 @@ struct EditorView: View {
                     TakesSection(project: model.project, canEdit: !model.isBusy) { model.delete($0) }
                 }
                 if model.player != nil {
+                    SoundIdeasSection(model: model) { showsSoundIdeas = true }
                     MusicSection(model: model, hasAPIKey: app.hasAPIKey)
                     MixSection(project: model.project) { model.applyMix() }
                 }
@@ -48,6 +50,7 @@ struct EditorView: View {
             }
             .safeAreaInset(edge: .bottom) { primaryButton }
             .sheet(isPresented: $showsSettings) { SettingsView() }
+            .sheet(isPresented: $showsSoundIdeas) { SoundIdeasSheet(model: model, hasAPIKey: app.hasAPIKey) }
             .fullScreenCover(item: $cover) { cover in
                 switch cover {
                 case .recorder: RecordingView(model: model)
@@ -261,6 +264,7 @@ struct EditorView: View {
         switch activity {
         case .generating: String(localized: "Generating voice…")
         case .generatingEffect: String(localized: "Generating sound effect…")
+        case .generatingEffects: String(localized: "Generating sound effects…")
         case .generatingMusic: String(localized: "Composing music…")
         case .composing: String(localized: "Updating preview…")
         case .exporting: String(localized: "Exporting…")

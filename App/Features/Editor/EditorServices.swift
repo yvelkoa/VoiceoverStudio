@@ -31,6 +31,13 @@ nonisolated struct EditorServices: Sendable {
     /// Length of an audio or video file in seconds.
     var duration: @Sendable (_ media: URL) async throws -> Double
     var writeThumbnail: @Sendable (_ video: URL, _ destination: URL) async throws -> Void
+    /// Sound effects and a music prompt suggested from the captions, streamed as the plan grows. See
+    /// `SoundDirector.plan`. `locale` is the language of the words when known.
+    var planSounds: @Sendable (
+        _ captions: [Caption], _ videoDuration: Double, _ locale: Locale?
+    ) -> AsyncThrowingStream<SoundPlan, any Error>
+    /// Loads the on-device model before the user asks, so the first suggestion doesn't wait for it.
+    var prewarmSoundDirector: @Sendable () -> Void
 }
 
 nonisolated extension EditorServices {
@@ -44,6 +51,12 @@ nonisolated extension EditorServices {
         recordingLocale: { RecordingLanguage.locale },
         waveform: { audio in try await Waveform.load(audio) },
         duration: { media in try await AVURLAsset(url: media).load(.duration).seconds },
-        writeThumbnail: { video, destination in try await Thumbnail.write(for: video, to: destination) }
+        writeThumbnail: { video, destination in try await Thumbnail.write(for: video, to: destination) },
+        planSounds: { captions, duration, locale in
+            SoundDirector.plan(for: captions, videoDuration: duration, locale: locale)
+        },
+        // Off the main actor: loading the model can hold the calling thread for seconds, and taps on the
+        // editor that just appeared were lost while it did.
+        prewarmSoundDirector: { Task.detached(priority: .utility) { SoundDirector.prewarm() } }
     )
 }

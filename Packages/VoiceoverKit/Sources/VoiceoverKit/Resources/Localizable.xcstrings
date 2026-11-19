@@ -17,6 +17,70 @@
         }
       }
     },
+    "Apple Intelligence can't read this language yet. Suggestions work for English and several other languages." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence пока не понимает этот язык. Подсказки работают для английского и ряда других языков."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence поки не розуміє цю мову. Підказки працюють для англійської та низки інших мов."
+          }
+        }
+      }
+    },
+    "Apple Intelligence declined to suggest sounds for this transcript." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence отказалась предлагать звуки для этого текста."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence відмовилася пропонувати звуки для цього тексту."
+          }
+        }
+      }
+    },
+    "Apple Intelligence is still getting ready. Try again in a few minutes." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence ещё готовится. Попробуйте через несколько минут."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence ще готується. Спробуйте за кілька хвилин."
+          }
+        }
+      }
+    },
+    "Couldn't suggest sounds: %@" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось предложить звуки: %@"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не вдалося запропонувати звуки: %@"
+          }
+        }
+      }
+    },
     "Edit the key's permissions at elevenlabs.io → Developers → API Keys." : {
       "localizations" : {
         "ru" : {
@@ -81,6 +145,22 @@
         }
       }
     },
+    "Nothing to read yet. Record a take or generate a voiceover first." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пока нечего читать. Сначала запишите дубль или создайте озвучку."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поки нічого читати. Спершу запишіть дубль або створіть озвучення."
+          }
+        }
+      }
+    },
     "The API key is missing a permission this feature needs." : {
       "localizations" : {
         "ru" : {
@@ -113,6 +193,38 @@
         }
       }
     },
+    "The transcript is too long for the on-device model." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Текст слишком длинный для модели на устройстве."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Текст задовгий для моделі на пристрої."
+          }
+        }
+      }
+    },
+    "This device can't run Apple Intelligence, which suggests the sounds." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Это устройство не поддерживает Apple Intelligence, которая предлагает звуки."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Цей пристрій не підтримує Apple Intelligence, яка пропонує звуки."
+          }
+        }
+      }
+    },
     "Too many requests right now. Try again in a moment." : {
       "localizations" : {
         "ru" : {
@@ -125,6 +237,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Забагато запитів. Спробуйте трохи згодом."
+          }
+        }
+      }
+    },
+    "Turn on Apple Intelligence in Settings to get sound suggestions." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Включите Apple Intelligence в Настройках, чтобы получать подсказки звуков."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Увімкніть Apple Intelligence у Параметрах, щоб отримувати підказки звуків."
           }
         }
       }

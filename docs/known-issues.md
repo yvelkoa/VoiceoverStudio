@@ -24,6 +24,8 @@ flowchart LR
 | Simulator video compositor | composited frames never reach `AVPlayerLayer` (`IQ-CA -19230`) | preview avoids the compositor; export still uses it, verify on device |
 | On-device transcription languages | `SpeechTranscriber` covers English and a handful of others | ru, uk fall back to `SFSpeechRecognizer` (server, ~1 min cap); offline it fails |
 | AVKit scrubber in Preview | shows the full length even when the export range is trimmed | playback is confined with `forwardPlaybackEndTime` |
+| Foundation Models languages | the on-device model doesn't read Russian or Ukrainian | Sound ideas says so up front for takes recorded in those languages |
+| Foundation Models on the simulator | the iOS 27.2 runtime on a macOS 26 host reports the model available, then refuses every request | test on the iOS 26.5 simulator or a device; the error is shown in the sheet |
 | Debug builds | noticeably slower (no optimisation, concurrency checks) | judge animation smoothness in Release |
 
 ## 2. Shortcuts taken on purpose

@@ -50,7 +50,9 @@ extension EditorServices {
             recordingLocale: { Locale(identifier: "en-US") },
             waveform: { _ in Waveform(peaks: []) },
             duration: { _ in duration },
-            writeThumbnail: { _, _ in }
+            writeThumbnail: { _, _ in },
+            planSounds: { _, _, _ in AsyncThrowingStream { $0.finish(throwing: SoundDirectorError.deviceNotEligible) } },
+            prewarmSoundDirector: {}
         )
     }
 

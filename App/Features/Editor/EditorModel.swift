@@ -6,8 +6,8 @@ import VoiceoverKit
 /// Coordinates one open project. `Project` holds the state; four owned objects do the work (`WorkRunner`
 /// runs steps, `EditPlayer` plays the edit, `RecordingSession` records a take, `TranscriptionQueue` recognises
 /// it); this type decides *what happens when*: which clips make the edit, and when to rebuild, swap or export.
-/// Record mode lives in `+Recording`, the effects lane in `+Effects`, background music in `+Music`, the
-/// credit-spending steps in `+Jobs`.
+/// Record mode lives in `+Recording`, the effects lane in `+Effects`, background music in `+Music`, sounds
+/// suggested by the on-device model in `+SoundIdeas`, the credit-spending steps in `+Jobs`.
 @Observable
 final class EditorModel {
     typealias Mode = EditingMode
@@ -29,6 +29,8 @@ final class EditorModel {
     let edit: EditPlayer
     /// One recogniser task per take; words come back through `onWords`.
     let transcriptions: TranscriptionQueue
+    /// Sound effects and music suggested by the on-device model; see `+SoundIdeas`.
+    let soundIdeas: SoundIdeas
     private var autosaver: ProjectAutosaver?
 
     // MARK: - Project-backed state (stored on the project so it survives relaunch)
@@ -101,6 +103,7 @@ final class EditorModel {
         self.services = services
         edit = EditPlayer(compose: services.compose)
         transcriptions = TranscriptionQueue(services: services)
+        soundIdeas = SoundIdeas(services: services)
         if let store { autosaver = ProjectAutosaver(project: project, store: store) }
 
         // A call or an unplugged headset ends the take the same way Stop does, keeping what was recorded.
@@ -128,6 +131,7 @@ final class EditorModel {
         frameStripTask?.cancel()
         waveformTask?.cancel()
         transcriptions.cancelAll()
+        soundIdeas.cancel()
 
         edit.pause()
         autosaver?.stop()
