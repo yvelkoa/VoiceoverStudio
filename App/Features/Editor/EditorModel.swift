@@ -270,9 +270,10 @@ final class EditorModel {
         project.effects.map { AudioClip(url: $0.audio, kind: .effect, start: $0.start) }
     }
 
-    /// From the video's first second; the composer cuts it at the video's end.
+    /// From the start of the export range, so a trimmed export opens on the track's first bar; the composer
+    /// cuts it at the video's end.
     private func musicClips() -> [AudioClip] {
-        project.music.map { [AudioClip(url: $0.audio, kind: .music)] } ?? []
+        project.music.map { [AudioClip(url: $0.audio, kind: .music, start: project.musicStart)] } ?? []
     }
 
     // MARK: - Running steps

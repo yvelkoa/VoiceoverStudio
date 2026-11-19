@@ -31,9 +31,12 @@ flowchart LR
 Output format is `mp3_44100_128` everywhere. The 120 s timeout exists because the voice changer uploads a whole
 take and waits for the conversion; music asks for 300 s on its request, because composing takes longer still.
 
-Background music is composed once at the video's length and laid from 0 s on its own track with its own level
-(`MixLevels.music`, 30 % by default so it sits under the voice). It is always instrumental: a sung track would
-fight the voiceover and its captions. A new video drops it, as it drops the effects.
+Background music is composed once at the length of the export range (the whole video when untrimmed) and laid
+from the range's start on its own track with its own level (`MixLevels.music`, 30 % by default so it sits under
+the voice). A trimmed export therefore opens on the track's first bar; moving the trim start rebuilds the edit
+so the music follows it. Lengthening the range afterwards leaves silence at its end until the music is
+regenerated. It is always instrumental: a sung track would fight the voiceover and its captions. A new video
+drops it, as it drops the effects. The Music section shows the length before generating, since it is billed.
 
 ## 2. Key handling
 

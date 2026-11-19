@@ -160,6 +160,9 @@ final class Project: Identifiable {
 
     var isTrimmed: Bool { trimStart != nil || trimEnd != nil }
 
+    /// Background music starts where the export does.
+    var musicStart: Double { trimStart ?? 0 }
+
     var activeCharacter: Character? {
         characters.first { $0.id == activeCharacterID }
     }
@@ -300,8 +303,20 @@ final class Project: Identifiable {
         effects[index].start = min(max(start, 0), max(videoDuration - effect.duration, 0))
     }
 
-    // MARK: - Music
+    /// Takes whose converted audio is missing or stale.
+    var takesNeedingConversion: [Take] {
+        takes.filter { convertedAudio[$0.id] == nil }
+    }
 
+    /// Total seconds that a voice swap would send to ElevenLabs; the API bills by audio length.
+    var secondsNeedingConversion: Double {
+        takesNeedingConversion.reduce(0) { $0 + $1.duration }
+    }
+}
+
+// MARK: - Music
+
+extension Project {
     /// Replaces the current track, deleting its file.
     func setMusic(_ new: BackgroundMusic) {
         removeMusic()
@@ -313,15 +328,5 @@ final class Project: Identifiable {
         waveforms[music.id] = nil
         try? FileManager.default.removeItem(at: music.audio)
         self.music = nil
-    }
-
-    /// Takes whose converted audio is missing or stale.
-    var takesNeedingConversion: [Take] {
-        takes.filter { convertedAudio[$0.id] == nil }
-    }
-
-    /// Total seconds that a voice swap would send to ElevenLabs; the API bills by audio length.
-    var secondsNeedingConversion: Double {
-        takesNeedingConversion.reduce(0) { $0 + $1.duration }
     }
 }

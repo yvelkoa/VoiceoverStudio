@@ -111,8 +111,8 @@ extension EditorModel {
 
     // MARK: - Trim
 
-    /// The export range. Only the export reads it, so no recompose; but the current export no longer
-    /// matches it and is dropped.
+    /// The export range. The current export no longer matches it and is dropped. Background music starts at
+    /// the range's start, so with music the edit is rebuilt too.
     func setTrim(start: Double? = nil, end: Double? = nil, clear: Bool = false) {
         if clear {
             project.trimStart = nil
@@ -129,5 +129,6 @@ extension EditorModel {
 
         project.clearExport()
         savedToPhotos = false
+        if project.music != nil { recompose() }
     }
 }

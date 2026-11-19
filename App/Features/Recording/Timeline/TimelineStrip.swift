@@ -40,8 +40,9 @@ struct TimelineStrip: View {
     /// Per-millisecond velocity multiplier, the same curve UIScrollView uses for normal deceleration.
     private static let decelerationRate = 0.998
 
-    private var pointsPerSecond: CGFloat { Self.pointsPerSecond }
-    private var contentWidth: CGFloat { CGFloat(duration) * pointsPerSecond }
+    // Not private: the music lane in the extension below reads them.
+    var pointsPerSecond: CGFloat { Self.pointsPerSecond }
+    var contentWidth: CGFloat { CGFloat(duration) * pointsPerSecond }
     static let effectColor = Color.yellow
     static let musicColor = Color.mint
 
@@ -198,34 +199,6 @@ struct TimelineStrip: View {
         }
     }
 
-    /// The background track, from the start; the composer cuts it at the video's end.
-    private func musicLane(_ music: BackgroundMusic) -> some View {
-        ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(.quaternary)
-                .frame(width: contentWidth, height: Self.laneHeight)
-            SegmentView(
-                segment: AudioSegment(
-                    takeID: music.id, characterID: music.id, start: 0, sourceOffset: 0,
-                    duration: min(music.duration, duration)
-                ),
-                waveform: waveforms[music.id],
-                color: Self.musicColor,
-                pointsPerSecond: pointsPerSecond
-            )
-            .overlay(alignment: .leading) {
-                Label(music.prompt, systemImage: "music.note")
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .padding(.leading, 4)
-                    .frame(maxWidth: CGFloat(min(music.duration, duration)) * pointsPerSecond - 4, alignment: .leading)
-            }
-            .contextMenu {
-                Button("Remove music", systemImage: "trash", role: .destructive) { onDeleteMusic() }
-            }
-        }
-    }
-
     /// Generated sounds share one lane; long-press a clip to delete it.
     private var effectsLane: some View {
         ZStack(alignment: .leading) {
@@ -281,6 +254,40 @@ struct TimelineStrip: View {
                 path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
                 path.closeSubpath()
             }
+        }
+    }
+}
+
+// MARK: - Music lane
+
+extension TimelineStrip {
+    /// The background track, from the start of the export range; the composer cuts it at the video's end.
+    func musicLane(_ music: BackgroundMusic) -> some View {
+        let start = trim?.lowerBound ?? 0
+        let length = min(music.duration, duration - start)
+        return ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(.quaternary)
+                .frame(width: contentWidth, height: Self.laneHeight)
+            SegmentView(
+                segment: AudioSegment(
+                    takeID: music.id, characterID: music.id, start: start, sourceOffset: 0, duration: length
+                ),
+                waveform: waveforms[music.id],
+                color: Self.musicColor,
+                pointsPerSecond: pointsPerSecond
+            )
+            .overlay(alignment: .leading) {
+                Label(music.prompt, systemImage: "music.note")
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .padding(.leading, 4)
+                    .frame(maxWidth: CGFloat(length) * pointsPerSecond - 4, alignment: .leading)
+            }
+            .contextMenu {
+                Button("Remove music", systemImage: "trash", role: .destructive) { onDeleteMusic() }
+            }
+            .offset(x: CGFloat(start) * pointsPerSecond)
         }
     }
 }

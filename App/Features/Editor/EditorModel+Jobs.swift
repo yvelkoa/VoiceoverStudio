@@ -41,7 +41,13 @@ extension EditorModel {
         let output = project.fileURL("export", extension: "mp4")
         savedToPhotos = false
 
-        run(.exporting, retry: { [weak self] in self?.export() }, operation: { [project] in
+        // If the export landed and only the Photos save failed, retrying saves that file instead of rendering
+        // the whole video again. `output` is unique per attempt, so it tells the two apart.
+        let retry: @MainActor () -> Void = { [weak self] in
+            guard let self else { return }
+            if exportedURL == output { saveToPhotos() } else { export() }
+        }
+        run(.exporting, retry: retry, operation: { [project] in
             let exported = try await VideoComposer.export(
                 composed, captions: captions, levels: levels, range: range, to: output
             )

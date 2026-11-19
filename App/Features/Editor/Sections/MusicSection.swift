@@ -1,8 +1,10 @@
 import SwiftUI
 
-/// Background music: describe it and ElevenLabs composes an instrumental track as long as the video.
+/// Background music: describe it and ElevenLabs composes an instrumental track as long as the export range.
 struct MusicSection: View {
     let model: EditorModel
+    /// Without a key the request would fail; the button waits for one, like the other generators.
+    let hasAPIKey: Bool
     @State private var prompt = ""
 
     var body: some View {
@@ -21,7 +23,7 @@ struct MusicSection: View {
             Button(generateTitle, systemImage: "wand.and.stars") {
                 model.generateMusic(prompt: prompt)
             }
-            .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.activity != nil)
+            .disabled(!canGenerate)
             if model.project.music != nil {
                 Button("Remove music", systemImage: "trash", role: .destructive) { model.removeMusic() }
                     .disabled(model.isBusy)
@@ -29,11 +31,16 @@ struct MusicSection: View {
         } header: {
             Text("Music")
         } footer: {
-            Text("Instrumental, as long as the video. Each generation costs credits.")
+            let seconds = Int(model.musicLength.rounded(.up))
+            Text("Instrumental, \(seconds) s: the part of the video that is exported. Each generation costs credits.")
         }
         .onAppear {
             if prompt.isEmpty, let music = model.project.music { prompt = music.prompt }
         }
+    }
+
+    private var canGenerate: Bool {
+        !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && model.activity == nil && hasAPIKey
     }
 
     private var generateTitle: LocalizedStringKey {

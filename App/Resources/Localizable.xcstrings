@@ -872,18 +872,18 @@
         }
       }
     },
-    "Instrumental, as long as the video. Each generation costs credits." : {
+    "Instrumental, %lld s: the part of the video that is exported. Each generation costs credits." : {
       "localizations" : {
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Без вокала, по длине видео. Каждая генерация расходует кредиты."
+            "value" : "Без вокала, %lld с: по длине экспортируемой части видео. Каждая генерация расходует кредиты."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Без вокалу, завдовжки з відео. Кожна генерація витрачає кредити."
+            "value" : "Без вокалу, %lld с: завдовжки з частиною відео, що експортується. Кожна генерація витрачає кредити."
           }
         }
       }
@@ -1735,22 +1735,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Почати експорт тут"
-          }
-        }
-      }
-    },
-    "Stop" : {
-      "localizations" : {
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Стоп"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Стоп"
           }
         }
       }

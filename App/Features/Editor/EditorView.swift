@@ -28,7 +28,7 @@ struct EditorView: View {
                     TakesSection(project: model.project, canEdit: !model.isBusy) { model.delete($0) }
                 }
                 if model.player != nil {
-                    MusicSection(model: model)
+                    MusicSection(model: model, hasAPIKey: app.hasAPIKey)
                     MixSection(project: model.project) { model.applyMix() }
                 }
                 resultSection
@@ -190,16 +190,8 @@ struct EditorView: View {
 
     private var primaryButton: some View {
         Group {
-            if model.isRecording {
-                Button {
-                    model.stopRecording()
-                } label: {
-                    Label("Stop", systemImage: "stop.fill").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-                .controlSize(.large)
-            } else if let activity = model.activity {
+            // Recording happens only in the full-screen recorder, so this bar never needs a Stop button.
+            if let activity = model.activity {
                 HStack(spacing: 12) {
                     ProgressView()
                     Text(activityTitle(activity))

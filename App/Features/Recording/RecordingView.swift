@@ -5,6 +5,7 @@ import VoiceoverKit
 /// Full-screen recording: the video on top, a frame strip to scrub, lanes of takes, and the record button.
 struct RecordingView: View {
     @Bindable var model: EditorModel
+    @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
     @Environment(\.scenePhase) private var scenePhase
@@ -180,7 +181,7 @@ struct RecordingView: View {
                     "Add sound effect at playhead",
                     systemImage: model.activity == .generatingEffect ? "hourglass" : "sparkles"
                 ) { showsEffectSheet = true }
-                    .disabled(model.isRecording || model.activity != nil || model.player == nil)
+                    .disabled(model.isRecording || model.activity != nil || model.player == nil || !app.hasAPIKey)
                 transportButton("Preview the edit", systemImage: "play.rectangle") { showsPreview = true }
                     .disabled(model.isRecording || model.player == nil)
             }
