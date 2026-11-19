@@ -34,7 +34,10 @@ final class EditPlayer {
 
         if let player {
             player.replaceCurrentItem(with: item)
-            if let resumeAt { await player.seek(to: resumeAt) }
+            // Not awaited: the seek completes only once the item is ready, and an item that never gets there
+            // (an empty edit on the iOS 26 simulator) would hold the job that composed it forever.
+            // AVPlayer applies the seek before the play below.
+            if let resumeAt { player.seek(to: resumeAt) { _ in } }
             if wasPlaying { player.play() }
         } else {
             player = AVPlayer(playerItem: item)
