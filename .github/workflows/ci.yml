@@ -10,12 +10,10 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v5
-      # The image's default Xcode is older: its SwiftPM copies string catalogs instead of compiling them, so the
-      # package's translations go missing. Pick the newest Xcode 27, the version the project is built with.
-      - name: Select Xcode 27
+      # The newest Xcode on the image: 27 once it ships there, the latest 26.x until then (the app targets iOS 26).
+      - name: Select Xcode
         run: |
-          xcode=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -1)
-          if [ -z "$xcode" ]; then ls -d /Applications/Xcode*.app; echo "No Xcode 27 on this image"; exit 1; fi
+          xcode=$(ls -d /Applications/Xcode_2[6-9]*.app | sort -V | tail -1)
           sudo xcode-select -s "$xcode"
           xcodebuild -version
       - name: SwiftLint
@@ -23,7 +21,10 @@ jobs:
           brew install swiftlint
           swiftlint lint --strict
       - name: Unit tests (VoiceoverKit)
-        run: swift test --package-path Packages/VoiceoverKit
+        # xcodebuild, not swift test: older toolchains' SwiftPM copies the string catalog instead of compiling it,
+        # and the translation test then finds no .lproj in the package bundle.
+        working-directory: Packages/VoiceoverKit
+        run: xcodebuild test -scheme VoiceoverKit -destination 'platform=macOS' -quiet
       - name: Translations complete
         run: python3 Scripts/fill_strings.py --check
       - name: App tests
