@@ -205,6 +205,10 @@ APP = {
     ),
     "Generate music · %lld s": ("Создать музыку · %lld с", "Створити музику · %lld с"),
     "Generating sound effects…": ("Создаются звуковые эффекты…", "Створюються звукові ефекти…"),
+    "Apple Intelligence took too long. Try again.": (
+        "Apple Intelligence отвечает слишком долго. Попробуйте ещё раз.",
+        "Apple Intelligence відповідає надто довго. Спробуйте ще раз.",
+    ),
     "No ideas this time. Try again, or add sounds by hand.": (
         "На этот раз идей нет. Попробуйте ещё раз или добавьте звуки вручную.",
         "Цього разу ідей немає. Спробуйте ще раз або додайте звуки вручну.",

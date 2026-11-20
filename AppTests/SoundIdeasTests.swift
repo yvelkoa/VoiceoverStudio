@@ -51,6 +51,54 @@ struct SoundIdeasTests {
         #expect(request.2?.identifier == "en-GB")
     }
 
+    /// A director that writes `plans` and then never finishes, the way the model sometimes does.
+    private func stalling(after plans: [SoundPlan]) -> EditorServices {
+        var services = EditorServices.stub()
+        services.planSounds = { _, _, _ in
+            AsyncThrowingStream { continuation in
+                for plan in plans { continuation.yield(plan) }
+            }
+        }
+
+        return services
+    }
+
+    @Test func aPlanThatNeverFinishesKeepsWhatItHasWhenTimeRunsOut() async {
+        let partial = SoundPlan(effects: [rain])
+        let ideas = SoundIdeas(services: stalling(after: [partial]), timeLimit: .milliseconds(100))
+
+        ideas.suggest(from: [], videoDuration: 12, locale: nil)
+
+        #expect(await eventually { !ideas.isPlanning })
+        #expect(ideas.plan == partial)
+        #expect(ideas.failure == nil, "effects without a music prompt are still worth picking from")
+    }
+
+    @Test func aPlanThatNeverStartsFailsWhenTimeRunsOut() async {
+        let ideas = SoundIdeas(services: stalling(after: []), timeLimit: .milliseconds(100))
+
+        ideas.suggest(from: [], videoDuration: 12, locale: nil)
+
+        #expect(await eventually { !ideas.isPlanning })
+        #expect(ideas.plan == nil)
+        #expect(ideas.failure != nil)
+    }
+
+    @Test func runningOutOfTimeStopsTheDirector() async {
+        let stopped = Recorder<Bool>()
+        var services = EditorServices.stub()
+        services.planSounds = { _, _, _ in
+            AsyncThrowingStream { continuation in
+                continuation.onTermination = { _ in stopped.append(true) }
+            }
+        }
+        let ideas = SoundIdeas(services: services, timeLimit: .milliseconds(100))
+
+        ideas.suggest(from: [], videoDuration: 12, locale: nil)
+
+        #expect(await eventually { !stopped.values.isEmpty })
+    }
+
     @Test func askingAgainMidPlanLeavesOnlyTheNewPlan() async {
         defer { folder.cleanUp() }
         let gate = Gate()

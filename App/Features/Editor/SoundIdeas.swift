@@ -16,8 +16,13 @@ final class SoundIdeas {
     private let planSounds: @Sendable ([Caption], Double, Locale?) -> AsyncThrowingStream<SoundPlan, any Error>
     private var task: Task<Void, Never>?
 
-    init(services: EditorServices) {
+    /// How long a plan may take. The on-device model usually answers in 10 to 40 seconds, but now and then it
+    /// keeps going past a minute without finishing; nobody should watch a spinner that long.
+    private let timeLimit: Duration
+
+    init(services: EditorServices, timeLimit: Duration = .seconds(45)) {
         planSounds = services.planSounds
+        self.timeLimit = timeLimit
     }
 
     isolated deinit {
@@ -32,29 +37,58 @@ final class SoundIdeas {
         isPlanning = true
 
         let stream = planSounds(captions, videoDuration, locale)
+        let timeLimit = timeLimit
         task = Task {
-            do {
+            let reader = Task {
                 for try await plan in stream {
-                    guard !Task.isCancelled else { return }
-
+                    try Task.checkCancellation()
                     self.plan = plan
                 }
+            }
 
-                // A cancelled consumer leaves the loop as if the stream had ended; this run was superseded
-                // and must not report on the state the newer one owns.
-                guard !Task.isCancelled else { return }
-
-                if plan?.effects.isEmpty ?? true, plan?.musicPrompt.isEmpty ?? true {
-                    failure = String(localized: "No ideas this time. Try again, or add sounds by hand.")
+            // Cancelling the reader ends the stream, which stops the model.
+            let timer = Task {
+                do {
+                    try await Task.sleep(for: timeLimit)
+                } catch {
+                    return false
                 }
-            } catch {
-                guard !Task.isCancelled, !(error is CancellationError) else { return }
 
-                failure = error.localizedDescription
+                reader.cancel()
+                return true
+            }
+
+            let result = await withTaskCancellationHandler {
+                await reader.result
+            } onCancel: {
+                reader.cancel()
+                timer.cancel()
+            }
+
+            timer.cancel()
+            let ranOutOfTime = await timer.value
+
+            // This run was superseded and must not report on the state the newer one owns.
+            guard !Task.isCancelled else { return }
+
+            if ranOutOfTime {
+                // What the model wrote before the limit is a usable plan; only an empty one is a failure.
+                if isEmpty { failure = String(localized: "Apple Intelligence took too long. Try again.") }
+            } else {
+                switch result {
+                case .success:
+                    if isEmpty { failure = String(localized: "No ideas this time. Try again, or add sounds by hand.") }
+                case .failure(let error):
+                    failure = error.localizedDescription
+                }
             }
 
             isPlanning = false
         }
+    }
+
+    private var isEmpty: Bool {
+        (plan?.effects.isEmpty ?? true) && (plan?.musicPrompt.isEmpty ?? true)
     }
 
     func cancel() {

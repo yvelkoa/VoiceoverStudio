@@ -410,6 +410,22 @@
         }
       }
     },
+    "Apple Intelligence took too long. Try again." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence отвечает слишком долго. Попробуйте ещё раз."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence відповідає надто довго. Спробуйте ще раз."
+          }
+        }
+      }
+    },
     "At %@ s, %@ s long" : {
       "localizations" : {
         "ru" : {

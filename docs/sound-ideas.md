@@ -61,6 +61,12 @@ Measured on an M1 Pro Mac (macOS 26.6) and the iOS 26.5 simulator:
 > a cancelled `for try await` ends like a finished stream, so the old run reported "No ideas" over the new one;
 > loading the model on the main actor swallowed the first tap on the freshly opened editor.
 
+> **Decision.** A plan gets 45 seconds (`SoundIdeas.timeLimit`). When they run out the stream is cancelled, which
+> stops the model; whatever it wrote by then stays as the plan, and only an empty plan is reported as a failure.
+> **Why.** The model's time is not stable: over 15 runs of the same prompt it took 6 to 52 seconds, and in 5 it
+> was still going after a minute, usually with the effects written and the music prompt missing. Effects without
+> a music idea are worth picking from; a spinner for over a minute is not.
+
 ## Long videos
 
 The transcript is cut at 6000 characters (about 1,500 English tokens) and the model is told the rest exists, so a
@@ -81,6 +87,6 @@ effects already on the lane (same prompt, same start), so nothing is billed twic
   `VOICEOVER_LIVE_MODEL=1 swift test --filter SoundDirectorLive` in `Packages/VoiceoverKit`.
   It stays out of the default run because the model's timing is not stable: the same prompt took from 6 seconds
   to over a minute, and about one run in three hit the one-minute limit.
-- App: `SoundIdeasTests` stubs `planSounds` and the HTTP transport: streaming, language, failures, partial
+- App: `SoundIdeasTests` stubs `planSounds` and the HTTP transport: streaming, language, the time limit, failures, partial
   success and retry.
 - By hand: the iOS 26.5 simulator on this Mac (see known issues for why not 27.2), or a device.
