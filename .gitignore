@@ -4,3 +4,10 @@ DerivedData/
 .build/
 .swiftpm/
 *.xcresult
+
+# Kotlin Multiplatform experiment
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/

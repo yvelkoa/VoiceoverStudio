@@ -28,6 +28,7 @@ flowchart LR
 | [elevenlabs.md](elevenlabs.md) | Endpoints, key permissions, error model, voice settings, credits, timing drift |
 | [sound-ideas.md](sound-ideas.md) | On-device Foundation Models: suggesting effects and music from the captions, its limits and tests |
 | [localization.md](localization.md) | String catalogs, the English/Russian/Ukrainian tables, plurals, how to add a string |
+| [kmp-experiment.md](kmp-experiment.md) | Kotlin Multiplatform side experiment: what was ported, interop friction measured, verdict |
 | [known-issues.md](known-issues.md) | Limits, shortcuts and debt, with the reason each one is still there |
 | [review-2026-11-03.md](review-2026-11-03.md) | Full code review and what was done about each finding |
 | [review-2026-11-18.md](review-2026-11-18.md) | Architecture review before publishing: navigation, DI, the music and auto-stop features |
