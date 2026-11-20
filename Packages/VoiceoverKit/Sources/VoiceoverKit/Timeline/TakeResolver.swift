@@ -20,6 +20,7 @@ public enum TakeResolver {
                 for other in newer {
                     remaining = remaining.flatMap { subtract(other.start...other.end, from: $0) }
                 }
+
                 for range in remaining where range.upperBound - range.lowerBound >= minimumDuration {
                     result.append(AudioSegment(
                         takeID: take.id,
@@ -38,9 +39,11 @@ public enum TakeResolver {
     /// Removes `cut` from `range`; the result is zero, one or two pieces.
     private static func subtract(_ cut: ClosedRange<Double>, from range: ClosedRange<Double>) -> [ClosedRange<Double>] {
         guard cut.lowerBound < range.upperBound, cut.upperBound > range.lowerBound else { return [range] }
+
         var pieces: [ClosedRange<Double>] = []
         if cut.lowerBound > range.lowerBound { pieces.append(range.lowerBound...cut.lowerBound) }
         if cut.upperBound < range.upperBound { pieces.append(cut.upperBound...range.upperBound) }
+
         return pieces
     }
 }

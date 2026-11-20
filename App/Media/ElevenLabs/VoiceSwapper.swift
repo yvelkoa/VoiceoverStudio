@@ -31,6 +31,7 @@ nonisolated enum VoiceSwapper {
             for job in pending.prefix(maxConcurrentRequests) {
                 group.addTask { try await convert(job, client: client, into: directory) }
             }
+
             pending = pending.dropFirst(maxConcurrentRequests)
 
             for try await outcome in group {
@@ -58,6 +59,7 @@ nonisolated enum VoiceSwapper {
         let url = directory.appending(path: "swapped-\(job.take.id.uuidString).mp3")
         try converted.write(to: url)
         let duration = try await AVURLAsset(url: url).load(.duration).seconds
+
         return Outcome(takeID: job.take.id, audio: url, drift: duration - job.take.duration)
     }
 }

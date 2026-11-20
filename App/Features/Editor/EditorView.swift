@@ -9,66 +9,128 @@ struct EditorView: View {
         var id: String { rawValue }
     }
 
+    /// What the lower half of the screen is working on. The stage above stays the same for all three.
+    enum Tool: Hashable {
+        case voice, sounds, music
+    }
+
     @Bindable var model: EditorModel
-    @Environment(AppModel.self) private var app
+    // Not private: the bottom bar in `EditorView+BottomBar` reads it.
+    @Environment(AppModel.self) var app
 
     @State var pickedItem: PhotosPickerItem?
     @State var isLoadingVideo = false
     @State var showsSettings = false
+    @State var showsSoundIdeas = false
+    @State var showsVideoPicker = false
     @State var cover: Cover?
+    @State var tool = Tool.voice
+    @Namespace private var previewSource
+    @State private var keyboardIsUp = false
 
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
+            // Pinned: the rest of the screen is about this picture.
+            EditorStage(
+                model: model,
+                isLoading: isLoadingVideo,
+                isCompact: keyboardIsUp,
+                previewSource: previewSource,
+                onPickVideo: { showsVideoPicker = true },
+                onExpand: { cover = .preview }
+            )
+            // Sounds and music are laid over a video; until there is one, only the voice tools make sense.
+            if model.player != nil {
+                toolPicker
+            }
+
             Form {
                 if !app.hasAPIKey {
                     apiKeyBanner
                 }
-                videoSection
-                modeSection
-                switch model.mode {
-                case .type:
-                    scriptSection
-                case .record:
-                    CharactersSection(model: model)
-                    TakesSection(project: model.project, canEdit: !model.isBusy) { model.delete($0) }
-                }
-                if model.player != nil {
-                    MusicSection(model: model, hasAPIKey: app.hasAPIKey)
-                    MixSection(project: model.project) { model.applyMix() }
-                }
                 resultSection
+
+                switch model.player == nil ? Tool.voice : tool {
+                case .voice:
+                    modeSection
+                    switch model.mode {
+                    case .type:
+                        scriptSection
+                    case .record:
+                        CharactersSection(model: model)
+                        TakesSection(project: model.project, canEdit: !model.isBusy) { model.delete($0) }
+                    }
+                case .sounds:
+                    SoundIdeasSection(model: model) { showsSoundIdeas = true }
+                    EffectsSection(model: model)
+                case .music:
+                    MusicSection(model: model, hasAPIKey: app.hasAPIKey)
+                }
             }
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle(model.project.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Settings", systemImage: "gearshape") { showsSettings = true }
-                }
-            }
-            .safeAreaInset(edge: .bottom) { primaryButton }
-            .sheet(isPresented: $showsSettings) { SettingsView() }
-            .fullScreenCover(item: $cover) { cover in
-                switch cover {
-                case .recorder: RecordingView(model: model)
-                case .preview: EditPreview(model: model)
-                }
-            }
-            .navigationDestination(for: EditorRoute.self) { route in
-                switch route {
-                case .voice(let target): VoicePickerView(client: model.client, selection: voiceBinding(target))
-                }
-            }
-            .alert(
-                "Something went wrong",
-                isPresented: Binding(get: { model.failure != nil }, set: { if !$0 { model.failure = nil } }),
-                presenting: model.failure,
-                actions: failureActions,
-                message: { failure in Text(failure.message) }
-            )
-            .onChange(of: pickedItem) { _, item in loadVideo(item) }
-            .task { await loadDebugVideo() }
+            .contentMargins(.top, 8, for: .scrollContent)
+            .listSectionSpacing(.compact)
         }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle(model.project.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Settings", systemImage: "gearshape") { showsSettings = true }
+            }
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            ToolbarItem(placement: .topBarTrailing) {
+                // Where editors keep it: the result of the screen, always one tap away.
+                Button(model.exportedURL == nil ? "Export with captions" : "Export again", systemImage: "square.and.arrow.up") {
+                    model.export()
+                }
+                .disabled(!model.hasResult || model.activity != nil)
+            }
+        }
+        .safeAreaInset(edge: .bottom) { primaryButton }
+        .photosPicker(
+            isPresented: $showsVideoPicker, selection: $pickedItem, matching: .videos, preferredItemEncoding: .current
+        )
+        .sheet(isPresented: $showsSettings) { SettingsView() }
+        .sheet(isPresented: $showsSoundIdeas) { SoundIdeasSheet(model: model, hasAPIKey: app.hasAPIKey) }
+        .animation(.easeOut(duration: 0.25), value: keyboardIsUp)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { note in
+            // With a hardware keyboard the system still "shows" one: a bar a few points tall that covers nothing.
+            let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+            keyboardIsUp = (frame?.height ?? 0) > 120
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            keyboardIsUp = false
+        }
+        .onChange(of: cover) { _, cover in
+            // The recorder drives the same player from its own transport; it must not open onto a running video.
+            if cover == .recorder { model.player?.pause() }
+        }
+        .fullScreenCover(item: $cover) { cover in
+            switch cover {
+            case .recorder:
+                RecordingView(model: model)
+            case .preview:
+                // Grows out of the stage's picture instead of sliding up over it.
+                EditPreview(model: model)
+                    .navigationTransition(.zoom(sourceID: EditorStage.previewID, in: previewSource))
+            }
+        }
+        .navigationDestination(for: EditorRoute.self) { route in
+            switch route {
+            case .voice(let target):
+                VoicePickerView(client: model.client, selection: voiceBinding(target))
+            }
+        }
+        .alert(
+            "Something went wrong",
+            isPresented: Binding(get: { model.failure != nil }, set: { if !$0 { model.failure = nil } }),
+            presenting: model.failure,
+            actions: failureActions,
+            message: { failure in Text(failure.message) }
+        )
+        .onChange(of: pickedItem) { _, item in loadVideo(item) }
+        .task { await loadDebugVideo() }
     }
 
     /// Development aid: `VOICEOVER_DEBUG_VIDEO=/path/to.mov` loads a video and opens the recorder on launch,
@@ -76,6 +138,7 @@ struct EditorView: View {
     private func loadDebugVideo() async {
         #if DEBUG
         guard let path = ProcessInfo.processInfo.environment["VOICEOVER_DEBUG_VIDEO"], model.videoURL == nil else { return }
+
         await model.setVideo(URL(fileURLWithPath: path))
         cover = .recorder
         #endif
@@ -93,33 +156,29 @@ struct EditorView: View {
         }
     }
 
-    private var videoSection: some View {
-        // PhotosPicker's label closure is nonisolated, so read main-actor state up front.
-        let hasVideo = model.videoURL != nil
-        let isLoading = isLoadingVideo
-        let duration = model.videoDuration
-        return Section("Video") {
-            PhotosPicker(selection: $pickedItem, matching: .videos, preferredItemEncoding: .current) {
-                HStack {
-                    Label(hasVideo ? "Replace video" : "Choose a video", systemImage: "film")
-                    Spacer()
-                    if isLoading {
-                        ProgressView()
-                    } else if hasVideo {
-                        Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                }
-            }
+    private var toolPicker: some View {
+        Picker("Tools", selection: $tool) {
+            Label("Voice", systemImage: "person.wave.2")
+                .tag(Tool.voice)
+            Label("Sounds", systemImage: "sparkles")
+                .tag(Tool.sounds)
+            Label("Music", systemImage: "music.note")
+                .tag(Tool.music)
         }
+        .pickerStyle(.segmented)
+        .labelStyle(.titleOnly)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 2)
     }
 
     private var modeSection: some View {
         Section {
             Picker("Mode", selection: $model.mode) {
-                Text("Record").tag(EditorModel.Mode.record)
-                Text("Type").tag(EditorModel.Mode.type)
+                Text("Record")
+                    .tag(EditorModel.Mode.record)
+                Text("Type")
+                    .tag(EditorModel.Mode.type)
             }
             .pickerStyle(.segmented)
             .disabled(model.isBusy)
@@ -144,35 +203,23 @@ struct EditorView: View {
         }
     }
 
+    /// What the last export left, and the range the next one covers. Sits right under the stage so the
+    /// outcome of Export is seen without scrolling; empty (and absent) until there is something to say.
     @ViewBuilder
     private var resultSection: some View {
-        if let player = model.player {
-            Section(model.mode == .type ? "Preview" : "Export") {
-                // Record mode has the full-screen recorder for playback; a second player here only confused.
-                if model.mode == .type {
-                    PreviewPlayer(player: player, captions: model.captions)
-                        .aspectRatio(9 / 16, contentMode: .fit)
-                        .frame(maxHeight: 460)
-                        .listRowInsets(EdgeInsets())
-                }
-
-                if !model.hasResult {
-                    Text(model.mode == .type ? "Generate a voiceover to export." : "Record a take to export.")
-                        .foregroundStyle(.secondary)
-                } else if model.mode == .record {
-                    Button("Preview", systemImage: "play.rectangle") { cover = .preview }
-                    if model.project.isTrimmed {
-                        let range = model.project.trimRange
-                        LabeledContent("Export range") {
-                            Text("\(timecode(range.lowerBound)) – \(timecode(range.upperBound))").monospacedDigit()
-                        }
+        if model.hasResult, model.exportedURL != nil || model.project.isTrimmed {
+            Section {
+                if model.project.isTrimmed {
+                    let range = model.project.trimRange
+                    LabeledContent("Export range") {
+                        Text("\(timecode(range.lowerBound)) – \(timecode(range.upperBound))")
+                            .monospacedDigit()
                     }
                 }
-                if !model.hasResult {
-                    EmptyView()
-                } else if let url = model.exportedURL {
+                if let url = model.exportedURL {
                     if model.savedToPhotos {
-                        Label("Saved to Photos", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                        Label("Saved to Photos", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
                     } else {
                         Button("Save to Photos", systemImage: "photo.badge.plus") { model.saveToPhotos() }
                             .disabled(model.activity != nil)
@@ -180,93 +227,13 @@ struct EditorView: View {
                     ShareLink(item: url) {
                         Label("Share…", systemImage: "square.and.arrow.up")
                     }
-                    Button("Export again", systemImage: "arrow.clockwise") { model.export() }
-                        .disabled(model.activity != nil)
-                } else {
-                    Button("Export with captions", systemImage: "square.and.arrow.down") { model.export() }
-                        .disabled(model.activity != nil)
                 }
             }
         }
-    }
-
-    // MARK: - Bottom bar
-
-    private var primaryButton: some View {
-        Group {
-            // Recording happens only in the full-screen recorder, so this bar never needs a Stop button.
-            if let activity = model.activity {
-                HStack(spacing: 12) {
-                    ProgressView()
-                    Text(activityTitle(activity))
-                    Spacer()
-                    Button("Cancel", role: .cancel) { model.cancel() }
-                }
-            } else {
-                switch model.mode {
-                case .record:
-                    HStack(spacing: 12) {
-                        Button {
-                            cover = .recorder
-                        } label: {
-                            Label(recordTitle, systemImage: "record.circle").frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.red)
-                        .disabled(model.player == nil)
-
-                        if model.canSwapVoices {
-                            Button {
-                                model.swapVoices()
-                            } label: {
-                                Label(swapTitle, systemImage: "arrow.triangle.2.circlepath")
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(!app.hasAPIKey)
-                        }
-                    }
-                    .controlSize(.large)
-                case .type:
-                    Button {
-                        model.generate()
-                    } label: {
-                        Label(model.hasResult ? "Regenerate" : "Generate voiceover", systemImage: "waveform")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(!model.canGenerate || !app.hasAPIKey)
-                }
-            }
-        }
-        .padding()
-        .background(.bar)
-    }
-
-    /// Shows what a swap will cost: ElevenLabs bills speech-to-speech by audio length.
-    private var swapTitle: String {
-        let seconds = Int(model.project.secondsNeedingConversion.rounded(.up))
-        return String(localized: "Swap voices · \(seconds) s")
-    }
-
-    private var recordTitle: String {
-        model.project.takes.isEmpty ? String(localized: "Record takes") : String(localized: "Record more")
     }
 
     private func timecode(_ seconds: Double) -> String {
         Duration.seconds(seconds).formatted(.time(pattern: .minuteSecond(padMinuteToLength: 1, fractionalSecondsLength: 1)))
-    }
-
-    private func activityTitle(_ activity: EditorModel.Activity) -> String {
-        switch activity {
-        case .generating: String(localized: "Generating voice…")
-        case .generatingEffect: String(localized: "Generating sound effect…")
-        case .generatingMusic: String(localized: "Composing music…")
-        case .composing: String(localized: "Updating preview…")
-        case .exporting: String(localized: "Exporting…")
-        case .swapping: String(localized: "Swapping voices…")
-        case .saving: String(localized: "Saving to Photos…")
-        }
     }
 }
 

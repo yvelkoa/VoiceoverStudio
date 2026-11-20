@@ -10,8 +10,10 @@ nonisolated enum VideoComposer {
 
         var errorDescription: String? {
             switch self {
-            case .noVideoTrack: String(localized: "This file has no video track.")
-            case .exportUnavailable: String(localized: "Export isn't available for this video.")
+            case .noVideoTrack:
+                String(localized: "This file has no video track.")
+            case .exportUnavailable:
+                String(localized: "Export isn't available for this video.")
             }
         }
     }
@@ -77,6 +79,7 @@ nonisolated enum VideoComposer {
         for caption in captions {
             parentLayer.addSublayer(captionLayer(for: caption, renderSize: size))
         }
+
         configuration.animationTool = AVVideoCompositionCoreAnimationTool(
             postProcessingAsVideoLayer: videoLayer,
             in: parentLayer
@@ -86,6 +89,7 @@ nonisolated enum VideoComposer {
         guard let session = AVAssetExportSession(asset: composed.asset, presetName: preset) else {
             throw Failure.exportUnavailable
         }
+
         session.videoComposition = AVVideoComposition(configuration: configuration)
         session.audioMix = composed.audioMix(levels)
         if let range {
@@ -95,6 +99,7 @@ nonisolated enum VideoComposer {
         }
 
         try await session.export(to: output, as: .mp4)
+
         return output
     }
 
@@ -121,6 +126,7 @@ nonisolated enum VideoComposer {
             layerInstructions: [AVVideoCompositionLayerInstruction(configuration: layer)],
             timeRange: range
         ))
+
         return AVVideoComposition.Configuration(
             frameDuration: CMTime(value: 1, timescale: max(Int32(frameRate.rounded()), 24)),
             instructions: [instruction],
@@ -143,11 +149,13 @@ nonisolated enum VideoComposer {
         if let duration = clip.duration {
             available = CMTimeMinimum(available, CMTime(seconds: duration, preferredTimescale: 600))
         }
+
         guard available > .zero else { return nil }
 
         guard let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
         else { return nil }
         try track.insertTimeRange(CMTimeRange(start: offset, duration: available), of: source, at: start)
+
         return track
     }
 
@@ -182,6 +190,7 @@ nonisolated enum VideoComposer {
         visible.beginTime = AVCoreAnimationBeginTimeAtZero + caption.start
         visible.duration = max(caption.end - caption.start, 0.05)
         layer.add(visible, forKey: "visible")
+
         return layer
     }
 }

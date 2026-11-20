@@ -39,6 +39,7 @@ public struct VoiceSettings: Codable, Equatable, Sendable {
         object[CodingKeys.style.rawValue] = style
         object[CodingKeys.speed.rawValue] = speed
         object[CodingKeys.useSpeakerBoost.rawValue] = useSpeakerBoost
+
         return object
     }
 

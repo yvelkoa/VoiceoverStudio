@@ -7,7 +7,12 @@ destination=${CHECK_DESTINATION:-'platform=iOS Simulator,name=iPhone 17'}
 xcodegen generate -q
 swiftlint lint --strict --quiet
 python3 Scripts/fill_strings.py --check
-swift test --package-path Packages/VoiceoverKit 2>&1 | grep -E "Test run with" || { echo "PACKAGE TESTS FAILED"; exit 1; }
+# The summary line is printed for a failed run too, so the exit status decides, not the grep.
+package_log=$(mktemp)
+if ! swift test --package-path Packages/VoiceoverKit >"$package_log" 2>&1; then
+  grep -E 'error:|recorded an issue|Test run with' "$package_log" | head -40; echo "PACKAGE TESTS FAILED"; exit 1
+fi
+grep -E "Test run with" "$package_log"
 log=$(mktemp)
 if ! xcodebuild test -project VoiceoverStudio.xcodeproj -scheme VoiceoverStudio \
   -destination "$destination" CODE_SIGNING_ALLOWED=NO -quiet >"$log" 2>&1; then

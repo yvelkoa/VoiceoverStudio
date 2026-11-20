@@ -18,6 +18,7 @@ public enum CaptionAssembler {
 
         for segment in segments {
             guard let take = takesByID[segment.takeID], let words = transcripts[take.id] else { continue }
+
             // Only words that start inside the slice survive; the shift moves them onto the timeline.
             let shift = segment.start - segment.sourceOffset
             let inside = words.filter { $0.start >= segment.sourceOffset && $0.start < segment.sourceOffset + segment.duration }
@@ -29,8 +30,10 @@ public enum CaptionAssembler {
         var captions: [Caption] = []
         for (track, characterID) in characterOrder.enumerated() {
             guard let words = wordsByCharacter[characterID]?.sorted(by: { $0.start < $1.start }) else { continue }
+
             captions += CaptionBuilder.captions(from: words, track: track, firstID: captions.count)
         }
+
         return captions.sorted { ($0.start, $0.track) < ($1.start, $1.track) }
     }
 }

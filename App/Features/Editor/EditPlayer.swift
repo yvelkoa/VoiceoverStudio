@@ -47,6 +47,7 @@ final class EditPlayer {
     /// Pushes new levels onto the playing item without rebuilding anything.
     func applyMix(_ mix: MixLevels) {
         guard let composed else { return }
+
         player?.currentItem?.audioMix = composed.audioMix(previewLevels(mix, for: composed))
     }
 
@@ -66,6 +67,7 @@ final class EditPlayer {
     private func previewLevels(_ mix: MixLevels, for composed: ComposedVideo) -> MixLevels {
         var levels = mix
         if composed.trackKinds.values.allSatisfy({ $0 == .original }) { levels.original = 1 }
+
         return levels
     }
 }

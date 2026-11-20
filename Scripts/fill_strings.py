@@ -16,6 +16,7 @@ LANGUAGES = ("ru", "uk")
 
 # English plural forms; the key itself is the "other" form.
 EN_PLURALS = {
+    "Add %lld effects": {"one": "Add %lld effect", "other": "Add %lld effects"},
     "%lld takes": {"one": "%lld take", "other": "%lld takes"},
     "%lld characters. Each character uses one ElevenLabs credit.": {
         "one": "%lld character. Each character uses one ElevenLabs credit.",

@@ -16,6 +16,7 @@ struct CharactersSection: View {
             .onDelete { offsets in
                 for index in offsets { model.removeCharacter(project.characters[index].id) }
             }
+
             // The last character stays: takes need someone to belong to.
             .deleteDisabled(project.characters.count == 1 || model.isBusy)
             Button("Add character", systemImage: "person.badge.plus") { model.addCharacter() }
@@ -66,6 +67,7 @@ private struct CharacterRow: View {
             get: { project.character(character.id)?.name ?? "" },
             set: { name in
                 guard var updated = project.character(character.id) else { return }
+
                 updated.name = name
                 model.update(updated)
             }

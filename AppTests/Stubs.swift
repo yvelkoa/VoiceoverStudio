@@ -19,7 +19,9 @@ nonisolated final class StubTransport: HTTPTransport {
             state.requests.append(request)
             return state.responses.isEmpty ? (500, Data()) : state.responses.removeFirst()
         }
+
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+
         return (body, response)
     }
 }
@@ -50,7 +52,9 @@ extension EditorServices {
             recordingLocale: { Locale(identifier: "en-US") },
             waveform: { _ in Waveform(peaks: []) },
             duration: { _ in duration },
-            writeThumbnail: { _, _ in }
+            writeThumbnail: { _, _ in },
+            planSounds: { _, _, _ in AsyncThrowingStream { $0.finish(throwing: SoundDirectorError.deviceNotEligible) } },
+            prewarmSoundDirector: {}
         )
     }
 

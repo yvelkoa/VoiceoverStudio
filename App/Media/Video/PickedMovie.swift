@@ -14,6 +14,7 @@ nonisolated struct PickedMovie: Transferable {
             let ext = received.file.pathExtension.isEmpty ? "mov" : received.file.pathExtension
             let copy = URL.temporaryDirectory.appending(path: "source-\(UUID().uuidString).\(ext)")
             try FileManager.default.copyItem(at: received.file, to: copy)
+
             return PickedMovie(url: copy)
         }
     }

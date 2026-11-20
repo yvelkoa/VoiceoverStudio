@@ -61,10 +61,10 @@ App/
     ElevenLabs/  VoiceSwapper
   Features/
     Navigation/  AppRoute, EditorRoute, VoiceTarget
-    Projects/    ProjectListView (root), ProjectRow, ProjectScreen (loads a project, owns its EditorModel)
-    Editor/      EditorView (+Helpers), EditorModel (+Recording, +Effects, +Music, +Jobs), EditorServices, WorkRunner, EditPlayer, RecordingSession, TranscriptionQueue, Sections/
+    Projects/    ProjectListView (root, a grid), ProjectCard, ProjectScreen (loads a project, owns its EditorModel)
+    Editor/      EditorView (+Helpers, +BottomBar), EditorStage, EditorTimeline, EditorModel (+Recording, +Effects, +Music, +Jobs), EditorServices, WorkRunner, EditPlayer, RecordingSession, TranscriptionQueue, Sections/
     Recording/   RecordingView (full-screen recorder), EffectSheet, MixPopover, Timeline/{TimelineStrip, SegmentView}
-    Preview/     EditPreview, PreviewScreen, PreviewPlayer, CaptionOverlay, PlayerLayerView, AVPlayer+TimeUpdates
+    Preview/     EditPreview, PreviewScreen, CaptionOverlay, PlayerLayerView, AVPlayer+TimeUpdates
     Settings/    SettingsView
     Voices/      VoicePickerView
 Packages/VoiceoverKit/Sources/VoiceoverKit/
@@ -79,6 +79,15 @@ Conventions:
 - One type per file.
 - `X+Y.swift` is an extension of `X` grouping the `Y` concern. Members it needs are `internal`, not `private`,
   on purpose.
+
+Code style, beyond what SwiftLint checks:
+
+- One view modifier per line, each on its own line under the view it modifies; never `Text("x").font(.caption).bold()`.
+- A `case` label stands alone; its body starts on the next line, even when it is one expression.
+- `if … else` is always written over several lines. A one-line body is kept for an early exit
+  (`guard … else { return }`) and for a single short statement.
+- Blank lines separate the steps of a function: after the guards, after a multi-line block, before the `return`
+  that ends a run of statements.
 
 ## 3. Dependencies and navigation
 

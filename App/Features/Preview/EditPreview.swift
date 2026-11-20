@@ -7,7 +7,9 @@ struct EditPreview: View {
 
     var body: some View {
         if let player = model.player {
-            PreviewScreen(player: player, captions: model.captions, range: model.exportRange)
+            PreviewScreen(
+                player: player, captions: model.captions, duration: model.videoDuration, range: model.exportRange
+            )
         }
     }
 }

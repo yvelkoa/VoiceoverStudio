@@ -11,6 +11,7 @@ struct ProjectAutosaverTests {
         let data = try Data(contentsOf: project.folder.appending(path: ProjectDocument.fileName))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
+
         return try decoder.decode(ProjectDocument.self, from: data)
     }
 
@@ -41,6 +42,20 @@ struct ProjectAutosaverTests {
         try await Task.sleep(for: .milliseconds(1500))
 
         #expect(try manifest(of: project).updatedAt == firstSave)
+    }
+
+    @Test func closingAnUntouchedProjectDoesNotRewriteIt() async throws {
+        defer { folder.cleanUp() }
+        let store = ProjectStore(root: folder.url)
+        let project = store.create()
+        let created = try manifest(of: project).updatedAt
+        let saver = ProjectAutosaver(project: project, store: store)
+
+        // The manifest's dates have one-second resolution.
+        try await Task.sleep(for: .milliseconds(1100))
+        saver.stop()
+
+        #expect(try manifest(of: project).updatedAt == created, "looking at a project is not a change")
     }
 
     @Test func stopSavesAtOnce() throws {

@@ -21,10 +21,13 @@ nonisolated struct ComposedVideo {
         let mix = AVMutableAudioMix()
         mix.inputParameters = composition.tracks(withMediaType: .audio).compactMap { track in
             guard let kind = trackKinds[track.trackID] else { return nil }
+
             let parameters = AVMutableAudioMixInputParameters(track: track)
             parameters.setVolume(levels.level(for: kind), at: .zero)
+
             return parameters
         }
+
         return mix
     }
 }

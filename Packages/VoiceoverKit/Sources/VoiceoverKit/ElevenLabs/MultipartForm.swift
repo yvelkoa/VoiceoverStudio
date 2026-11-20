@@ -25,6 +25,7 @@ struct MultipartForm {
     func encoded() -> Data {
         var data = body
         data.append(Data("--\(boundary)--\r\n".utf8))
+
         return data
     }
 

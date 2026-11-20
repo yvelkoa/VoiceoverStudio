@@ -8,7 +8,7 @@ other. Powered by the [ElevenLabs API](https://elevenlabs.io/docs) and on-device
 
 **Record mode:** pick a video → add characters and give each a voice → scrub to a moment, press Record,
 speak, stop (or let the video's end stop it); repeat per line and per character → drop generated sound effects
-on their own lane → describe background music and ElevenLabs composes it to the length of the export → Swap voices →
+on their own lane, or let Apple Intelligence on the device suggest effects and music from what is said → describe background music and ElevenLabs composes it to the length of the export → Swap voices →
 export an MP4 with captions burned in.
 
 **Type mode:** write a script, pick a voice, generate, export.
@@ -36,7 +36,7 @@ flowchart LR
         Transcriber["Transcriber<br/>SpeechTranscriber (on device)<br/>or SFSpeechRecognizer"]
         Swapper["VoiceSwapper<br/>≤3 requests in flight"]
         Composer["VideoComposer (nonisolated)<br/>clips → tracks by kind,<br/>live mix, CATextLayer export"]
-        Preview["PreviewPlayer<br/>caption overlay per track"]
+        Preview["EditorStage, PreviewScreen<br/>caption overlay per track"]
     end
 
     subgraph Kit["VoiceoverKit (Swift package, no UI)"]
@@ -217,5 +217,6 @@ reinstalls the debug build on the booted simulator; with a video path it opens t
 - Drag a take or an effect along its lane to move it
 - Trim silence at the edges of a take
 - Remove filler words via on-device Foundation Models, cutting the audio by word timing
+- Compare the on-device sound plan with a cloud model behind a small key-holding proxy
 - Hear other characters' takes while recording a reply
 - Auto-ducking of effects under speech

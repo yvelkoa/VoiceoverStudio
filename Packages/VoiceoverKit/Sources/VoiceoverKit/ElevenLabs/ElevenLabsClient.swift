@@ -17,6 +17,7 @@ public actor ElevenLabsClient {
     public static let defaultTransport: any HTTPTransport = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 120
+
         return URLSession(configuration: configuration)
     }()
 
@@ -43,6 +44,7 @@ public actor ElevenLabsClient {
         let voices = try decode(VoicesResponse.self, from: data).voices
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         cachedVoices = voices
+
         return voices
     }
 
@@ -57,6 +59,7 @@ public actor ElevenLabsClient {
         if let settings {
             body["voice_settings"] = settings.jsonObject
         }
+
         let data = try await perform(
             path: "/v1/text-to-speech/\(voiceID)/with-timestamps",
             query: [URLQueryItem(name: "output_format", value: Self.outputFormat)],
@@ -69,6 +72,7 @@ public actor ElevenLabsClient {
             // `alignment` matches the original script; the normalized one spells out numbers etc.
             let alignment = response.alignment ?? response.normalizedAlignment
         else { throw ElevenLabsError.decoding }
+
         return Speech(audio: audio, alignment: alignment)
     }
 
@@ -76,6 +80,7 @@ public actor ElevenLabsClient {
     public func soundEffect(prompt: String, durationSeconds: Double? = nil) async throws -> Data {
         var body: [String: any Sendable] = ["text": prompt]
         if let durationSeconds { body["duration_seconds"] = durationSeconds }
+
         return try await perform(path: "/v1/sound-generation", method: "POST", json: body)
     }
 
@@ -88,6 +93,7 @@ public actor ElevenLabsClient {
             "music_length_ms": milliseconds,
             "force_instrumental": true,
         ]
+
         return try await perform(
             path: "/v1/music",
             query: [URLQueryItem(name: "output_format", value: Self.outputFormat)],
@@ -119,6 +125,7 @@ public actor ElevenLabsClient {
             let json = try JSONEncoder().encode(settings)
             form.addField("voice_settings", value: String(bytes: json, encoding: .utf8) ?? "{}")
         }
+
         return try await perform(
             path: "/v1/voice-changer/\(voiceID)",
             query: [URLQueryItem(name: "output_format", value: Self.outputFormat)],
@@ -160,6 +167,7 @@ public actor ElevenLabsClient {
         guard var components = URLComponents(url: baseURL.appending(path: path), resolvingAgainstBaseURL: false) else {
             throw ElevenLabsError.invalidRequest("Malformed request path.")
         }
+
         if !query.isEmpty { components.queryItems = query }
         guard let url = components.url else { throw ElevenLabsError.invalidRequest("Malformed request URL.") }
 
@@ -186,6 +194,7 @@ public actor ElevenLabsClient {
         guard (200..<300).contains(status) else {
             throw ElevenLabsError.from(status: status, body: data)
         }
+
         return data
     }
 

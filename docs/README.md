@@ -13,6 +13,7 @@ flowchart LR
     A --> E[persistence.md]
     C --> F[elevenlabs.md]
     D --> F
+    D --> J[sound-ideas.md]
     B & C & D & E & F --> G[known-issues.md]
     G --> H[review-2026-11-03.md] --> I[review-2026-11-18.md]
 ```
@@ -25,6 +26,7 @@ flowchart LR
 | [takes-and-timeline.md](takes-and-timeline.md) | Takes, characters, overlap resolution, recording, waveforms, transcription, voice swap, the scrubber |
 | [persistence.md](persistence.md) | Project folders, the manifest, loading, autosave, invalidation and file lifecycle |
 | [elevenlabs.md](elevenlabs.md) | Endpoints, key permissions, error model, voice settings, credits, timing drift |
+| [sound-ideas.md](sound-ideas.md) | On-device Foundation Models: suggesting effects and music from the captions, its limits and tests |
 | [localization.md](localization.md) | String catalogs, the English/Russian/Ukrainian tables, plurals, how to add a string |
 | [known-issues.md](known-issues.md) | Limits, shortcuts and debt, with the reason each one is still there |
 | [review-2026-11-03.md](review-2026-11-03.md) | Full code review and what was done about each finding |

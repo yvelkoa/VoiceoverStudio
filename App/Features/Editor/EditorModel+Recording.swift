@@ -40,6 +40,7 @@ extension EditorModel {
 
     func delete(_ take: Take) {
         guard !isBusy else { return }
+
         transcriptions.cancel(take.id)
 
         project.remove(take)
@@ -52,6 +53,7 @@ extension EditorModel {
     /// Captions for Record mode: each character's words on its own line, cut to the audible segments.
     func rebuildCaptions() {
         guard mode == .record else { return }
+
         captions = CaptionAssembler.captions(
             segments: project.segments,
             takes: project.takes,
@@ -70,6 +72,7 @@ extension EditorModel {
 
     func removeCharacter(_ id: Character.ID) {
         guard !isBusy, project.characters.count > 1 else { return }
+
         transcriptions.cancel(project.takes.filter { $0.characterID == id }.map(\.id))
 
         project.removeCharacter(id)
@@ -79,6 +82,7 @@ extension EditorModel {
 
     func update(_ character: Character) {
         guard let current = project.character(character.id) else { return }
+
         let needsRecompose = current.voice != character.voice || current.settings != character.settings
         if needsRecompose && isBusy { return } // a swap is using those conversions right now
 
@@ -91,6 +95,7 @@ extension EditorModel {
     /// Replaces the recorded voice of every unconverted take with its character's ElevenLabs voice.
     func swapVoices() {
         guard canSwapVoices, let videoURL else { return }
+
         if let missing = project.charactersMissingVoice.first {
             failure = Failure(message: String(localized: "Pick a voice for \(missing.name) first."), recovery: .editInput)
             return
@@ -102,9 +107,17 @@ extension EditorModel {
         }
 
         run(.swapping, retry: { [weak self] in self?.swapVoices() }, operation: { [client, project] in
-            try await VoiceSwapper.convert(jobs, client: client, into: project.folder) { outcome in
-                project.setConvertedAudio(outcome.audio, drift: outcome.drift, for: outcome.takeID)
+            do {
+                try await VoiceSwapper.convert(jobs, client: client, into: project.folder) { outcome in
+                    project.setConvertedAudio(outcome.audio, drift: outcome.drift, for: outcome.takeID)
+                }
+            } catch {
+                // Takes converted before the failure are paid for and kept; let the player use them.
+                // Deferred until this job is over, like any recompose asked for during one.
+                if jobs.contains(where: { project.convertedAudio[$0.take.id] != nil }) { self.recompose() }
+                throw error
             }
+
             try await self.compose(videoURL: videoURL)
         })
     }
@@ -127,8 +140,7 @@ extension EditorModel {
             if let start = project.trimStart, start >= end { project.trimStart = nil }
         }
 
-        project.clearExport()
-        savedToPhotos = false
+        dropExport()
         if project.music != nil { recompose() }
     }
 }

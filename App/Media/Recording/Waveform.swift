@@ -17,11 +17,14 @@ nonisolated struct Waveform: Sendable {
     /// Levels for a slice of the file, resampled to `count` values for drawing.
     func levels(from offset: Double, duration: Double, count: Int) -> [Float] {
         guard !peaks.isEmpty, count.signum() == 1 else { return [] }
+
         let first = offset / Self.bucket
         let span = duration / Self.bucket
+
         return (0..<count).map { index in
             let position = first + span * Double(index) / Double(count)
             let bucketIndex = Int(position)
+
             return bucketIndex < peaks.count ? peaks[bucketIndex] : 0
         }
     }
@@ -31,6 +34,7 @@ nonisolated struct Waveform: Sendable {
     static func load(_ url: URL) async throws -> Waveform {
         let asset = AVURLAsset(url: url)
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else { return Waveform(peaks: []) }
+
         let reader = try AVAssetReader(asset: asset)
         let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
             AVFormatIDKey: kAudioFormatLinearPCM,
@@ -56,6 +60,7 @@ nonisolated struct Waveform: Sendable {
                 block, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &length, dataPointerOut: &pointer
             )
             guard let pointer else { continue }
+
             pointer.withMemoryRebound(to: Int16.self, capacity: length / 2) { samples in
                 for index in 0..<(length / 2) {
                     current = max(current, Swift.abs(max(samples[index], -Int16.max)))
@@ -71,6 +76,7 @@ nonisolated struct Waveform: Sendable {
         if filled > 0 { peaks.append(min(1, Float(current) / Float(Int16.max) * gain)) }
         // copyNextSampleBuffer returns nil both at the end and on failure; a truncated waveform would look like silence.
         if reader.status == .failed, let error = reader.error { throw error }
+
         return Waveform(peaks: peaks)
     }
 }

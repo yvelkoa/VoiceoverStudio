@@ -39,11 +39,16 @@ final class AppModel {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         let previous = keyStore.read()
         guard keyStore.save(trimmed) else { throw ElevenLabsError.missingAPIKey }
+
         hasAPIKey = true
         do {
             _ = try await client.voices(forceRefresh: true)
         } catch ElevenLabsError.invalidAPIKey {
-            if let previous { _ = keyStore.save(previous) } else { removeKey() }
+            if let previous {
+                _ = keyStore.save(previous)
+            } else {
+                removeKey()
+            }
             throw ElevenLabsError.invalidAPIKey
         }
     }

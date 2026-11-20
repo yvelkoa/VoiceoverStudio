@@ -12,7 +12,8 @@ final class TakeRecorder {
 
         var errorDescription: String? {
             switch self {
-            case .alreadyRecording: String(localized: "A take is already being recorded.")
+            case .alreadyRecording:
+                String(localized: "A take is already being recorded.")
             }
         }
     }
@@ -37,6 +38,7 @@ final class TakeRecorder {
     /// Starts a new file and returns its URL. The session is configured so playback keeps working.
     func start(in directory: URL) throws -> URL {
         guard recorder == nil else { throw Failure.alreadyRecording }
+
         try AudioSession.activateRecording()
 
         let url = directory.appending(path: "take-\(UUID().uuidString).m4a")
@@ -55,6 +57,7 @@ final class TakeRecorder {
         isRecording = true
         startMetering()
         observeSession()
+
         return url
     }
 
@@ -68,6 +71,7 @@ final class TakeRecorder {
         recorder = nil
         isRecording = false
         AudioSession.activatePlayback()
+
         return duration
     }
 
@@ -82,11 +86,13 @@ final class TakeRecorder {
             ) { [weak self] note in
                 let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
                 guard raw == AVAudioSession.InterruptionType.began.rawValue else { return }
+
                 Task { @MainActor in self?.interrupted() }
             },
             center.addObserver(forName: AVAudioSession.routeChangeNotification, object: session, queue: nil) { [weak self] note in
                 let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
                 guard raw == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue else { return }
+
                 Task { @MainActor in self?.interrupted() }
             },
         ]
@@ -99,6 +105,7 @@ final class TakeRecorder {
 
     private func interrupted() {
         guard isRecording else { return }
+
         onInterruption?()
     }
 
@@ -109,6 +116,7 @@ final class TakeRecorder {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(Waveform.bucket))
                 guard let self, let recorder else { return }
+
                 recorder.updateMeters()
                 let level = Waveform.level(fromDecibels: recorder.peakPower(forChannel: 0))
                 let expected = Int(recorder.currentTime / Waveform.bucket)

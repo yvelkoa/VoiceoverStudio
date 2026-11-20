@@ -7,7 +7,8 @@ nonisolated enum PhotosSaver {
 
         var errorDescription: String? {
             switch self {
-            case .denied: String(localized: "Photos access is off. Allow “Add Photos Only” for Voiceover Studio in Settings.")
+            case .denied:
+                String(localized: "Photos access is off. Allow “Add Photos Only” for Voiceover Studio in Settings.")
             }
         }
     }
@@ -15,6 +16,7 @@ nonisolated enum PhotosSaver {
     static func save(_ video: URL) async throws {
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         guard status == .authorized || status == .limited else { throw Failure.denied }
+
         try await PHPhotoLibrary.shared().performChanges {
             PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: video)
         }

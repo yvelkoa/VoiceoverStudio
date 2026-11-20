@@ -18,6 +18,7 @@ public struct KeychainStore: Sendable {
         guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
               let data = item as? Data
         else { return nil }
+
         return String(data: data, encoding: .utf8)
     }
 
@@ -32,6 +33,7 @@ public struct KeychainStore: Sendable {
         var query = baseQuery(account)
         query[kSecValueData as String] = data
         query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+
         return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
     }
 

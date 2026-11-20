@@ -7,6 +7,7 @@ extension EditorView {
 
     func loadVideo(_ item: PhotosPickerItem?) {
         guard let item else { return }
+
         isLoadingVideo = true
         Task {
             defer { isLoadingVideo = false }
@@ -17,6 +18,7 @@ extension EditorView {
                     withAnimation { isLoadingVideo = false }
                     await model.setVideo(movie.url)
                 }
+
                 // Cleared so that picking the same item again counts as a change.
                 pickedItem = nil
             } catch {
@@ -51,6 +53,7 @@ extension EditorView {
                 get: { model.project.character(id)?.voice },
                 set: { voice in
                     guard var updated = model.project.character(id) else { return }
+
                     updated.voice = voice
                     model.update(updated)
                 }

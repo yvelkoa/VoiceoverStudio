@@ -19,10 +19,14 @@ public enum ElevenLabsError: Error, Equatable, Sendable {
 
     public var recovery: Recovery {
         switch self {
-        case .missingAPIKey, .invalidAPIKey: .openSettings
-        case .rateLimited, .server, .network: .retry
-        case .invalidRequest: .editInput
-        case .missingPermission, .quotaExceeded, .decoding: .none
+        case .missingAPIKey, .invalidAPIKey:
+            .openSettings
+        case .rateLimited, .server, .network:
+            .retry
+        case .invalidRequest:
+            .editInput
+        case .missingPermission, .quotaExceeded, .decoding:
+            .none
         }
     }
 
@@ -33,15 +37,19 @@ public enum ElevenLabsError: Error, Equatable, Sendable {
         let detail = (try? JSONDecoder().decode(ErrorBody.self, from: body))?.detail
 
         switch (status, detail?.status) {
-        case (_, "quota_exceeded"): return .quotaExceeded
+        case (_, "quota_exceeded"):
+            return .quotaExceeded
         case (_, "missing_permissions"):
             let fallback = String(localized: "The API key is missing a permission this feature needs.", bundle: .module)
             return .missingPermission(detail?.message ?? fallback)
-        case (401, _), (_, "invalid_api_key"): return .invalidAPIKey
-        case (429, _): return .rateLimited
+        case (401, _), (_, "invalid_api_key"):
+            return .invalidAPIKey
+        case (429, _):
+            return .rateLimited
         case (400, _), (422, _):
             return .invalidRequest(detail?.message ?? String(localized: "The request was rejected.", bundle: .module))
-        default: return .server(status: status)
+        default:
+            return .server(status: status)
         }
     }
 }
@@ -60,7 +68,8 @@ extension ElevenLabsError: LocalizedError {
             String(localized: "You've used up your ElevenLabs credits for this period.", bundle: .module)
         case .rateLimited:
             String(localized: "Too many requests right now. Try again in a moment.", bundle: .module)
-        case .invalidRequest(let message): message
+        case .invalidRequest(let message):
+            message
         case .server(let status):
             String(localized: "ElevenLabs is having trouble (HTTP \(status)). Try again.", bundle: .module)
         case .network:

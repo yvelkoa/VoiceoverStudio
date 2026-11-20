@@ -6,8 +6,8 @@ import VoiceoverKit
 /// Coordinates one open project. `Project` holds the state; four owned objects do the work (`WorkRunner`
 /// runs steps, `EditPlayer` plays the edit, `RecordingSession` records a take, `TranscriptionQueue` recognises
 /// it); this type decides *what happens when*: which clips make the edit, and when to rebuild, swap or export.
-/// Record mode lives in `+Recording`, the effects lane in `+Effects`, background music in `+Music`, the
-/// credit-spending steps in `+Jobs`.
+/// Record mode lives in `+Recording`, the effects lane in `+Effects`, background music in `+Music`, sounds
+/// suggested by the on-device model in `+SoundIdeas`, the credit-spending steps in `+Jobs`.
 @Observable
 final class EditorModel {
     typealias Mode = EditingMode
@@ -29,6 +29,8 @@ final class EditorModel {
     let edit: EditPlayer
     /// One recogniser task per take; words come back through `onWords`.
     let transcriptions: TranscriptionQueue
+    /// Sound effects and music suggested by the on-device model; see `+SoundIdeas`.
+    let soundIdeas: SoundIdeas
     private var autosaver: ProjectAutosaver?
 
     // MARK: - Project-backed state (stored on the project so it survives relaunch)
@@ -37,12 +39,16 @@ final class EditorModel {
         get { project.mode }
         set {
             guard newValue != project.mode else { return }
+
             project.mode = newValue
 
             switch newValue {
-            case .record: rebuildCaptions()
-            case .type: captions = project.typeCaptions
+            case .record:
+                rebuildCaptions()
+            case .type:
+                captions = project.typeCaptions
             }
+
             recompose()
         }
     }
@@ -101,6 +107,7 @@ final class EditorModel {
         self.services = services
         edit = EditPlayer(compose: services.compose)
         transcriptions = TranscriptionQueue(services: services)
+        soundIdeas = SoundIdeas(services: services)
         if let store { autosaver = ProjectAutosaver(project: project, store: store) }
 
         // A call or an unplugged headset ends the take the same way Stop does, keeping what was recorded.
@@ -109,9 +116,11 @@ final class EditorModel {
         recording.onVideoEnd = { [weak self] in self?.stopRecording() }
         transcriptions.onWords = { [weak self] takeID, words in
             guard let self else { return }
+
             project.setTranscript(words, for: takeID)
             rebuildCaptions()
         }
+
         transcriptions.onFailure = { [weak self] take, error in
             self?.failure = Failure(message: error.localizedDescription, recovery: .retry) { [weak self] in
                 self?.transcriptions.transcribe(take)
@@ -128,6 +137,7 @@ final class EditorModel {
         frameStripTask?.cancel()
         waveformTask?.cancel()
         transcriptions.cancelAll()
+        soundIdeas.cancel()
 
         edit.pause()
         autosaver?.stop()
@@ -136,10 +146,22 @@ final class EditorModel {
     /// Brings a loaded project back to life: captions, the player, then the waveforms.
     private func restore() {
         switch mode {
-        case .record: rebuildCaptions()
-        case .type: captions = project.typeCaptions
+        case .record:
+            rebuildCaptions()
+        case .type:
+            captions = project.typeCaptions
         }
-        recompose()
+
+        // An export the manifest names but the disk no longer has can't be shared or saved.
+        if let export = project.exportedURL, !FileManager.default.fileExists(atPath: export.path) {
+            project.exportedURL = nil
+        }
+
+        // No export can be running yet, so any other rendered file in the folder is a leftover.
+        project.removeStrayExports()
+
+        // Nothing changed yet: the export on disk still matches the edit and must survive the reopen.
+        recompose(keepingExport: true)
 
         let sources = project.takes.map { ($0.id, $0.recording) } + project.effects.map { ($0.id, $0.audio) }
             + (project.music.map { [($0.id, $0.audio)] } ?? [])
@@ -174,8 +196,10 @@ final class EditorModel {
     /// Something worth exporting: generated speech in Type mode, at least one take in Record mode.
     var hasResult: Bool {
         switch mode {
-        case .type: speechFile != nil
-        case .record: !project.takes.isEmpty
+        case .type:
+            speechFile != nil
+        case .record:
+            !project.takes.isEmpty
         }
     }
 
@@ -197,6 +221,7 @@ final class EditorModel {
     /// Moves a picked video into the project folder and starts over with it.
     func setVideo(_ picked: URL) async {
         guard !isBusy else { return }
+
         cancel()
         resetResult()
         frameStripTask?.cancel()
@@ -227,29 +252,42 @@ final class EditorModel {
     // MARK: - The edit
 
     /// Re-builds the edit after something moved; no network involved. Deferred while a job runs.
-    func recompose() {
+    /// `keepingExport` is for a rebuild that follows no edit (opening a project): the export stays current.
+    func recompose(keepingExport: Bool = false) {
         guard let videoURL else { return }
+
         work.whenIdle { [weak self] in
             guard let self else { return }
-            run(.composing, slot: .compose, retry: { [weak self] in self?.recompose() }, operation: {
-                try await self.compose(videoURL: videoURL)
+
+            let retry: @MainActor () -> Void = { [weak self] in self?.recompose(keepingExport: keepingExport) }
+            run(.composing, slot: .compose, retry: retry, operation: {
+                try await self.compose(videoURL: videoURL, keepingExport: keepingExport)
             })
         }
     }
 
     /// Builds the edit and puts it on the player. Jobs call this directly at their end instead of
     /// `recompose()`, which would cancel the job that is still running them.
-    func compose(videoURL: URL) async throws {
+    func compose(videoURL: URL, keepingExport: Bool = false) async throws {
         try await edit.compose(video: videoURL, clips: voiceClips() + effectClips() + musicClips(), mix: project.mix)
 
         // What was exported no longer matches what is heard.
-        project.clearExport()
-        savedToPhotos = false
+        if !keepingExport { dropExport() }
     }
 
-    /// Pushes the project's mix levels onto the playing item without rebuilding anything.
+    /// Pushes the project's mix levels onto the playing item without rebuilding anything. The export was
+    /// rendered at the old levels, so it goes.
     func applyMix() {
         edit.applyMix(project.mix)
+        dropExport()
+    }
+
+    /// Forgets the export once the edit no longer matches it.
+    func dropExport() {
+        guard project.exportedURL != nil || savedToPhotos else { return }
+
+        project.clearExport()
+        savedToPhotos = false
     }
 
     private func voiceClips() -> [AudioClip] {
@@ -261,8 +299,10 @@ final class EditorModel {
             let takes = Dictionary(uniqueKeysWithValues: project.takes.map { ($0.id, $0) })
             return project.segments.compactMap { segment in
                 guard let take = takes[segment.takeID] else { return nil }
+
                 // Converted audio keeps the take's timing, so the same offsets apply to it.
                 let url = project.convertedAudio[take.id] ?? take.recording
+
                 return AudioClip(
                     url: url,
                     kind: .voice,

@@ -10,6 +10,7 @@ struct AppModelTests {
     private func makeApp(key: String?, _ responses: [(status: Int, body: Data)]) -> (AppModel, InMemoryKeyStore) {
         let keys = InMemoryKeyStore(key)
         let app = AppModel(keyStore: keys, store: ProjectStore(root: folder.url), transport: StubTransport(responses))
+
         return (app, keys)
     }
 

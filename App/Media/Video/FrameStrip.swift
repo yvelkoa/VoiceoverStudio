@@ -47,18 +47,21 @@ nonisolated enum FrameStrip {
             defer { index += 1 }
             // A frame that fails to decode leaves a dark cell rather than failing the whole strip.
             guard let frame = try? result.image else { continue }
+
             let cell = CGRect(x: cellWidth * CGFloat(index), y: 0, width: cellWidth, height: cellHeight)
             context.saveGState()
             context.clip(to: cell)
             context.draw(frame, in: aspectFill(CGSize(width: frame.width, height: frame.height), into: cell))
             context.restoreGState()
         }
+
         return context.makeImage()
     }
 
     private static func aspectFill(_ size: CGSize, into rect: CGRect) -> CGRect {
         let scale = max(rect.width / size.width, rect.height / size.height)
         let scaled = CGSize(width: size.width * scale, height: size.height * scale)
+
         return CGRect(
             x: rect.midX - scaled.width / 2,
             y: rect.midY - scaled.height / 2,
