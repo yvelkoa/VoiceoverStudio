@@ -2,8 +2,12 @@
 # Reinstall the last debug build on the booted simulator and launch it.
 # Pass a video path to load it and open the recorder straight away (DEBUG builds only).
 set -e
-APP=$(find ~/Library/Developer/Xcode/DerivedData -path '*VoiceoverStudio*' -name 'VoiceoverStudio.app' \
-  -path '*Build/Products/Debug-iphonesimulator*' -not -path '*Index.noindex*' | head -1)
+# Ask Xcode where this checkout builds to: another checkout or worktree of the project has its own
+# DerivedData folder, and picking "the first one found" installs that one's app instead.
+cd "$(dirname "$0")/.."
+APP="$(xcodebuild -project VoiceoverStudio.xcodeproj -scheme VoiceoverStudio -sdk iphonesimulator \
+  -configuration Debug -showBuildSettings 2>/dev/null | awk -F' = ' '/ BUILT_PRODUCTS_DIR = /{print $2; exit}')/VoiceoverStudio.app"
+[ -d "$APP" ] || { echo "No build at $APP; build first."; exit 1; }
 BUNDLE=beav.dev.VoiceoverStudio
 # Installs what is already built: build first (Xcode, or `xcodebuild build`), or this launches a stale app.
 xcrun simctl terminate booted $BUNDLE 2>/dev/null || true

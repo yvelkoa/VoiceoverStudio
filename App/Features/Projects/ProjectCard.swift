@@ -3,6 +3,8 @@ import SwiftUI
 /// A project in the grid: its poster frame first, since that is how a video is recognised.
 struct ProjectCard: View {
     let summary: ProjectSummary
+    /// The poster is what the editor grows out of when the project opens, and shrinks back into.
+    let zoomSource: Namespace.ID
     @State private var image: UIImage?
 
     private static let corner: CGFloat = 18
@@ -67,6 +69,9 @@ struct ProjectCard: View {
                 }
             }
             .contentShape(.rect(cornerRadius: Self.corner))
+            .matchedTransitionSource(id: summary.id, in: zoomSource) { source in
+                source.clipShape(.rect(cornerRadius: Self.corner))
+            }
     }
 
     private func badge(@ViewBuilder content: () -> some View) -> some View {

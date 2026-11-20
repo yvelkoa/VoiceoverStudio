@@ -10,6 +10,7 @@ struct ProjectListView: View {
     @State private var showsSettings = false
     @State private var renaming: ProjectSummary?
     @State private var newTitle = ""
+    @Namespace private var zoomSource
 
     private static let columns = [GridItem(.adaptive(minimum: 150, maximum: 240), spacing: 16, alignment: .top)]
 
@@ -30,7 +31,7 @@ struct ProjectListView: View {
                         LazyVGrid(columns: Self.columns, spacing: 20) {
                             ForEach(app.store.summaries) { summary in
                                 NavigationLink(value: AppRoute.project(summary.id)) {
-                                    ProjectCard(summary: summary)
+                                    ProjectCard(summary: summary, zoomSource: zoomSource)
                                 }
                                 .buttonStyle(.plain)
                                 .contextMenu {
@@ -63,7 +64,9 @@ struct ProjectListView: View {
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
                 case .project(let id):
+                    // Out of the project's poster in the grid; a project with no card yet falls back to a push.
                     ProjectScreen(projectID: id)
+                        .navigationTransition(.zoom(sourceID: id, in: zoomSource))
                 }
             }
             .sheet(isPresented: $showsSettings) { SettingsView() }
