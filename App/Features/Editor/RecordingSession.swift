@@ -13,7 +13,8 @@ final class RecordingSession {
 
         var errorDescription: String? {
             switch self {
-            case .microphoneDenied: String(localized: "Microphone access is off. Allow it in Settings to record takes.")
+            case .microphoneDenied:
+                String(localized: "Microphone access is off. Allow it in Settings to record takes.")
             }
         }
     }
@@ -64,10 +65,12 @@ final class RecordingSession {
         stillValid: @MainActor () -> Bool
     ) async throws -> Bool {
         guard !isStarting, !isRecording else { return false }
+
         isStarting = true
         defer { isStarting = false }
 
         guard await recorder.requestPermission() else { throw Failure.microphoneDenied }
+
         // The permission prompt can take a while; the screen may have moved on meanwhile.
         guard stillValid() else { return false }
 
@@ -87,8 +90,10 @@ final class RecordingSession {
             player.isMuted = false
             throw error
         }
+
         endWatcher = PlaybackEndWatcher(player: player) { [weak self] in self?.onVideoEnd?() }
         player.play()
+
         return true
     }
 
@@ -96,6 +101,7 @@ final class RecordingSession {
     /// deletes the file) when it is too short to be one.
     func stop(player: AVPlayer) -> Finished? {
         guard isRecording, let characterID else { return nil }
+
         endWatcher = nil
         player.rate = 0
         player.isMuted = false
@@ -106,6 +112,7 @@ final class RecordingSession {
         guard duration >= TakeResolver.minimumDuration else {
             // Too short to be a take; the file would otherwise sit in the project folder (and its backup) forever.
             try? FileManager.default.removeItem(at: url)
+
             return nil
         }
 

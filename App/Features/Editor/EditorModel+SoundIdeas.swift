@@ -19,9 +19,11 @@ extension EditorModel {
     /// edit once. One API call per effect. A retry after a failure skips the ones that already landed.
     func addEffects(_ planned: [SoundPlan.Effect]) {
         guard activity == nil, videoURL != nil else { return }
+
         let missing = planned.filter { effect in
             !project.effects.contains { $0.prompt == effect.prompt && $0.start == effect.start }
         }
+
         guard !missing.isEmpty else { return }
 
         let retry: @MainActor () -> Void = { [weak self] in self?.addEffects(planned) }
@@ -31,6 +33,7 @@ extension EditorModel {
             defer {
                 if !added.isEmpty { self.recompose() }
             }
+
             for effect in missing {
                 try Task.checkCancellation()
                 let data = try await client.soundEffect(prompt: effect.prompt, durationSeconds: effect.duration)
@@ -40,6 +43,7 @@ extension EditorModel {
                 project.add(sound)
                 added.append(sound)
             }
+
             for sound in added {
                 if let waveform = try? await services.waveform(sound.audio) { project.setWaveform(waveform, for: sound.id) }
             }

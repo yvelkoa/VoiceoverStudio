@@ -25,7 +25,8 @@ struct EffectSheet: View {
                 Section("Length") {
                     Picker("Length", selection: $seconds) {
                         ForEach(choices, id: \.self) { choice in
-                            Text(choice == 0 ? "Auto" : "\(Int(choice)) s").tag(choice)
+                            Text(choice == 0 ? "Auto" : "\(Int(choice)) s")
+                                .tag(choice)
                         }
                     }
                     .pickerStyle(.segmented)

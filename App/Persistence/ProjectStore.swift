@@ -24,9 +24,11 @@ final class ProjectStore {
         summaries = folders
             .compactMap { folder -> ProjectSummary? in
                 guard let id = UUID(uuidString: folder.lastPathComponent) else { return nil }
+
                 if let document = try? readDocument(in: folder) { return ProjectSummary(document: document, folder: folder) }
                 let manifest = folder.appending(path: ProjectDocument.fileName)
                 guard FileManager.default.fileExists(atPath: manifest.path) else { return nil }
+
                 return ProjectSummary(unreadableFolder: folder, id: id)
             }
             .sorted { $0.updatedAt > $1.updatedAt }
@@ -36,6 +38,7 @@ final class ProjectStore {
         let project = Project(folder: folder(for: UUID()), title: String(localized: "Project \(summaries.count + 1)"))
         try? FileManager.default.createDirectory(at: project.folder, withIntermediateDirectories: true)
         try? save(project)
+
         return project
     }
 
@@ -48,6 +51,7 @@ final class ProjectStore {
     func loadInBackground(_ id: UUID) async throws -> Project {
         let folder = folder(for: id)
         let document = try await Task.detached(priority: .userInitiated) { try Self.decodeDocument(in: folder) }.value
+
         return Project(document: document, folder: folder)
     }
 
@@ -69,6 +73,7 @@ final class ProjectStore {
 
     func rename(_ id: UUID, to title: String) {
         guard let project = try? load(id) else { return }
+
         project.title = title
         try? save(project)
     }
@@ -94,6 +99,7 @@ final class ProjectStore {
         let data = try Data(contentsOf: folder.appending(path: ProjectDocument.fileName))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
+
         return try decoder.decode(ProjectDocument.self, from: data)
     }
 }

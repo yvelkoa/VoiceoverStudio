@@ -9,6 +9,7 @@ struct PlayerLayerView: UIViewRepresentable {
         let view = LayerHostView()
         view.playerLayer.videoGravity = .resizeAspect
         view.playerLayer.player = player
+
         return view
     }
 

@@ -73,7 +73,8 @@ struct RecordingView: View {
                     .disabled(model.isRecording)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.disabled(model.isRecording)
+                    Button("Done") { dismiss() }
+                        .disabled(model.isRecording)
                 }
             }
             .fullScreenCover(isPresented: $showsPreview) { EditPreview(model: model) }
@@ -84,6 +85,11 @@ struct RecordingView: View {
             }
         }
         .interactiveDismissDisabled(model.isRecording)
+        // A recording room: the picture and the lanes read best on black, whatever the app's appearance.
+        // Not `preferredColorScheme`: that recolours the whole window, and the editor underneath flashes dark
+        // while this screen slides over it. Without it the status bar would stay dark on black, so it goes.
+        .environment(\.colorScheme, .dark)
+        .statusBarHidden()
         .task(id: model.videoURL) {
             // Let the presentation animation finish before the decoder competes with it.
             try? await Task.sleep(for: .milliseconds(350))
@@ -93,6 +99,13 @@ struct RecordingView: View {
             )
         }
         .task(id: model.player.map(ObjectIdentifier.init)) { await followPlayer() }
+        .task(id: model.player.map(ObjectIdentifier.init)) {
+            guard let player = model.player else { return }
+
+            for await playing in player.playingUpdates() {
+                isPlaying = playing
+            }
+        }
         .onChange(of: model.isRecording) { _, recording in
             // Recording starts and stops the player itself; keep the transport in step.
             isPlaying = recording || (model.player?.rate ?? 0) > 0
@@ -139,7 +152,9 @@ struct RecordingView: View {
                         model.project.activeCharacterID = character.id
                     } label: {
                         HStack(spacing: 6) {
-                            Circle().fill(CharacterPalette.color(character.colorIndex)).frame(width: 8, height: 8)
+                            Circle()
+                                .fill(CharacterPalette.color(character.colorIndex))
+                                .frame(width: 8, height: 8)
                             Text(character.name.isEmpty ? String(localized: "Character") : character.name)
                         }
                         .font(.subheadline.weight(active ? .semibold : .regular))
@@ -180,14 +195,24 @@ struct RecordingView: View {
             .padding(.horizontal, 8)
 
             Button {
-                if model.isRecording { model.stopRecording() } else { model.startRecording() }
+                if model.isRecording {
+                    model.stopRecording()
+                } else {
+                    model.startRecording()
+                }
             } label: {
                 ZStack {
-                    Circle().stroke(.red, lineWidth: 3).frame(width: 52, height: 52)
+                    Circle()
+                        .stroke(.red, lineWidth: 3)
+                        .frame(width: 52, height: 52)
                     if model.isRecording {
-                        RoundedRectangle(cornerRadius: 4).fill(.red).frame(width: 20, height: 20)
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(.red)
+                            .frame(width: 20, height: 20)
                     } else {
-                        Circle().fill(.red).frame(width: 42, height: 42)
+                        Circle()
+                            .fill(.red)
+                            .frame(width: 42, height: 42)
                     }
                 }
             }
@@ -210,26 +235,29 @@ struct RecordingView: View {
 
     private func followPlayer() async {
         guard let player = model.player else { return }
+
         currentTime = player.currentTime().seconds
         for await time in player.timeUpdates(every: 0.1) {
             currentTime = time
-            isPlaying = player.rate > 0
         }
     }
 
     /// Drag events arrive faster than a 60 fps video can seek; only the newest pending time is honoured.
     private func scrub(to time: Double) {
         guard let player = model.player else { return }
+
         player.pause()
         isPlaying = false
         currentTime = time
         pendingSeek = time
         guard !isSeeking else { return }
+
         seekNext()
     }
 
     private func seekNext() {
         guard let player = model.player, let time = pendingSeek else { return }
+
         pendingSeek = nil
         isSeeking = true
         let tolerance = CMTime(value: 1, timescale: 30)
@@ -243,12 +271,14 @@ struct RecordingView: View {
 
     private func togglePlayback() {
         guard let player = model.player else { return }
+
         if player.rate > 0 {
             player.pause()
         } else {
             if currentTime >= model.videoDuration - 0.05 { scrub(to: 0) }
             player.play()
         }
+
         isPlaying = player.rate > 0
     }
 

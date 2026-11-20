@@ -11,6 +11,7 @@ nonisolated enum RecordingLanguage {
         if let id = UserDefaults.standard.string(forKey: key), !id.isEmpty {
             return Locale(identifier: id)
         }
+
         return Locale.current
     }
 }

@@ -5,6 +5,7 @@ set -e
 APP=$(find ~/Library/Developer/Xcode/DerivedData -path '*VoiceoverStudio*' -name 'VoiceoverStudio.app' \
   -path '*Build/Products/Debug-iphonesimulator*' -not -path '*Index.noindex*' | head -1)
 BUNDLE=beav.dev.VoiceoverStudio
+# Installs what is already built: build first (Xcode, or `xcodebuild build`), or this launches a stale app.
 xcrun simctl terminate booted $BUNDLE 2>/dev/null || true
 xcrun simctl install booted "$APP"
 xcrun simctl privacy booted grant microphone $BUNDLE >/dev/null

@@ -46,7 +46,8 @@ struct SoundIdeasSheet: View {
                     Section {
                         HStack(spacing: 12) {
                             ProgressView()
-                            Text("Reading what is said…").foregroundStyle(.secondary)
+                            Text("Reading what is said…")
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -143,7 +144,11 @@ struct SoundIdeasSheet: View {
         Binding(
             get: { picked.contains(id) },
             set: { isOn in
-                if isOn { picked.insert(id) } else { picked.remove(id) }
+                if isOn {
+                    picked.insert(id)
+                } else {
+                    picked.remove(id)
+                }
             }
         )
     }

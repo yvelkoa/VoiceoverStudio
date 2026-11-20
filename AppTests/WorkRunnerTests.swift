@@ -31,6 +31,7 @@ struct WorkRunnerTests {
         runner.run(.composing, slot: .compose) {
             do { try await Task.sleep(for: .seconds(10)) } catch { firstWasCancelled = true; throw error }
         }
+
         runner.run(.composing, slot: .compose) { secondFinished = true }
 
         #expect(await eventually { firstWasCancelled && secondFinished })
@@ -48,6 +49,7 @@ struct WorkRunnerTests {
             try Task.checkCancellation()
             jobFinished = true
         }
+
         runner.run(.composing, slot: .compose) {}
         #expect(await eventually { gate.isWaiting })
 

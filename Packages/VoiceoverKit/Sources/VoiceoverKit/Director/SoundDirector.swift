@@ -13,11 +13,16 @@ public enum SoundDirector {
     /// a request can still fail afterwards (the simulator reports the model as available but refuses to run it).
     public static var unavailability: SoundDirectorError? {
         switch SystemLanguageModel.default.availability {
-        case .available: nil
-        case .unavailable(.deviceNotEligible): .deviceNotEligible
-        case .unavailable(.appleIntelligenceNotEnabled): .appleIntelligenceOff
-        case .unavailable(.modelNotReady): .modelNotReady
-        case .unavailable: .deviceNotEligible
+        case .available:
+            nil
+        case .unavailable(.deviceNotEligible):
+            .deviceNotEligible
+        case .unavailable(.appleIntelligenceNotEnabled):
+            .appleIntelligenceOff
+        case .unavailable(.modelNotReady):
+            .modelNotReady
+        case .unavailable:
+            .deviceNotEligible
         }
     }
 
@@ -31,6 +36,7 @@ public enum SoundDirector {
     /// around ten seconds before the first word.
     public static func prewarm() {
         guard unavailability == nil else { return }
+
         LanguageModelSession(instructions: instructions).prewarm()
     }
 
@@ -60,11 +66,13 @@ public enum SoundDirector {
                     for try await snapshot in stream {
                         continuation.yield(SoundPlan(partial: snapshot.content).fitted(to: videoDuration))
                     }
+
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: Task.isCancelled ? CancellationError() : SoundDirectorError(error))
                 }
             }
+
             continuation.onTermination = { _ in task.cancel() }
         }
     }
@@ -102,11 +110,13 @@ public enum SoundDirector {
                 cut = true
                 break
             }
+
             transcript += line + "\n"
         }
         if transcript.isEmpty { throw .transcriptTooLong }
 
         let end = cut ? "\n(The transcript continues; plan only for the part above.)" : ""
+
         return "Video length: \(seconds(videoDuration)) s.\nTranscript:\n\(transcript)\(end)"
     }
 
@@ -146,6 +156,7 @@ extension SoundPlan {
             guard let start = effect.start, let prompt = effect.prompt else { return nil }
             return Effect(id: index, start: start, duration: effect.duration ?? 2, prompt: prompt, cue: effect.cue ?? "")
         }
+
         self.init(effects: effects, musicPrompt: partial.musicPrompt ?? "")
     }
 }

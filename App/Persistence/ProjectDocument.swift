@@ -3,14 +3,14 @@ import VoiceoverKit
 
 /// What a project looks like on disk: `project.json` next to its media files.
 /// Files are referenced by name, never by absolute path: iOS moves the app container between launches.
-nonisolated struct ProjectDocument: Codable {
+nonisolated struct ProjectDocument: Codable, Equatable {
     static let fileName = "project.json"
     static let thumbnailName = "thumbnail.jpg"
     /// Bump when a change cannot be expressed as a new optional field. Decoding reads it through
     /// `decodeIfPresent`, so manifests written before the field existed count as version 1.
     static let currentVersion = 1
 
-    struct TakeRecord: Codable {
+    struct TakeRecord: Codable, Equatable {
         var id: UUID
         var characterID: UUID
         var start: Double
@@ -19,7 +19,7 @@ nonisolated struct ProjectDocument: Codable {
         var sequence: Int
     }
 
-    struct EffectRecord: Codable {
+    struct EffectRecord: Codable, Equatable {
         var id: UUID
         var prompt: String
         var start: Double
@@ -27,7 +27,7 @@ nonisolated struct ProjectDocument: Codable {
         var file: String
     }
 
-    struct MusicRecord: Codable {
+    struct MusicRecord: Codable, Equatable {
         var id: UUID
         var prompt: String
         var duration: Double

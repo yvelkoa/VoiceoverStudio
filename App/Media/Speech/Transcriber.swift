@@ -13,7 +13,8 @@ nonisolated enum Transcriber {
 
         var errorDescription: String? {
             switch self {
-            case .notAuthorized: return String(localized: "Speech recognition is off. Allow it in Settings to get captions.")
+            case .notAuthorized:
+                return String(localized: "Speech recognition is off. Allow it in Settings to get captions.")
             case .unavailable(let locale):
                 let name = locale.localizedString(forIdentifier: locale.identifier) ?? locale.identifier
                 return String(localized: "Speech recognition isn't available for \(name).")
@@ -24,26 +25,34 @@ nonisolated enum Transcriber {
     /// Words in `file`, with times relative to the start of the file.
     @concurrent
     static func words(in file: URL, locale: Locale) async throws -> [TimedWord] {
-        if let supported = await SpeechTranscriber.supportedLocale(equivalentTo: locale) {
-            return try await onDeviceWords(in: file, locale: supported)
+        guard let supported = await SpeechTranscriber.supportedLocale(equivalentTo: locale) else {
+            return try await legacyWords(in: file, locale: locale)
         }
-        return try await legacyWords(in: file, locale: locale)
-    }
 
-    // MARK: - iOS 26 SpeechAnalyzer
-
-    private static func onDeviceWords(in file: URL, locale: Locale) async throws -> [TimedWord] {
         let transcriber = SpeechTranscriber(
-            locale: locale,
+            locale: supported,
             transcriptionOptions: [],
             reportingOptions: [],
             attributeOptions: [.audioTimeRange]
         )
         // The app has to hold a reservation for the locale before it may query or download its model;
         // without it the install request fails with "not subscribed to transcription.<lang>".
-        if await !AssetInventory.reservedLocales.contains(locale) {
-            _ = try await AssetInventory.reserve(locale: locale)
+        if await !AssetInventory.reservedLocales.contains(supported) {
+            _ = try await AssetInventory.reserve(locale: supported)
         }
+
+        // A locale can be listed as supported while this device cannot run its model (the simulator, for
+        // one). Asking to install it anyway fails with the same "not subscribed" error, reservation or not.
+        if await AssetInventory.status(forModules: [transcriber]) == .unsupported {
+            return try await legacyWords(in: file, locale: supported)
+        }
+
+        return try await onDeviceWords(in: file, transcriber: transcriber)
+    }
+
+    // MARK: - iOS 26 SpeechAnalyzer
+
+    private static func onDeviceWords(in file: URL, transcriber: SpeechTranscriber) async throws -> [TimedWord] {
         if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
             try await request.downloadAndInstall()
         }
@@ -56,12 +65,14 @@ nonisolated enum Transcriber {
             for try await result in transcriber.results {
                 words += timedWords(in: result.text)
             }
+
             return words
         }()
 
         // `finishAfterFile` ends the results stream once the file is through; with `analyzeSequence` +
         // `finalizeAndFinish` the stream stays open and the collector never returns.
         try await analyzer.start(inputAudioFile: audioFile, finishAfterFile: true)
+
         return try await collected
     }
 
@@ -70,11 +81,13 @@ nonisolated enum Transcriber {
         var words: [TimedWord] = []
         for run in text.runs {
             guard let range = run.audioTimeRange else { continue }
+
             let pieces = String(text[run.range].characters).split(whereSeparator: \.isWhitespace)
             for piece in pieces {
                 words.append(TimedWord(text: String(piece), start: range.start.seconds, end: range.end.seconds))
             }
         }
+
         return words
     }
 
@@ -84,6 +97,7 @@ nonisolated enum Transcriber {
         let status = await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
         }
+
         guard status == .authorized else { throw Failure.notAuthorized }
         guard let recognizer = SFSpeechRecognizer(locale: locale), recognizer.isAvailable else {
             throw Failure.unavailable(locale)
@@ -96,6 +110,7 @@ nonisolated enum Transcriber {
         // The recognition task keeps streaming audio to the server until it is told to stop. A deleted take
         // or a closed editor cancels the Swift task; the handler passes that on so the request ends too.
         let holder = TaskHolder()
+
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 let once = ResumeOnce(continuation)
@@ -107,9 +122,11 @@ nonisolated enum Transcriber {
                         let words = result.bestTranscription.segments.map {
                             TimedWord(text: $0.substring, start: $0.timestamp, end: $0.timestamp + $0.duration)
                         }
+
                         once.resume(.success(words))
                     }
                 }
+
                 holder.set(task)
             }
         } onCancel: {

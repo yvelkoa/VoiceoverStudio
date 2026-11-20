@@ -20,9 +20,12 @@ struct VoicePickerView: View {
                     dismiss()
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(voice.name).font(.body.weight(.medium))
+                        Text(voice.name)
+                            .font(.body.weight(.medium))
                         if !voice.summary.isEmpty {
-                            Text(voice.summary).font(.caption).foregroundStyle(.secondary)
+                            Text(voice.summary)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -31,7 +34,8 @@ struct VoicePickerView: View {
                 .buttonStyle(.plain)
 
                 if voice.id == selection?.id {
-                    Image(systemName: "checkmark").foregroundStyle(.tint)
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(.tint)
                 }
                 if voice.previewURL != nil {
                     Button {
@@ -73,6 +77,7 @@ struct VoicePickerView: View {
             previewingID = nil
             return
         }
+
         let player = AVPlayer(url: url)
         player.play()
         previewPlayer = player

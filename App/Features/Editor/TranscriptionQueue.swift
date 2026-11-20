@@ -26,11 +26,16 @@ final class TranscriptionQueue {
         let transcribe = services.transcribe
         tasks[take.id]?.cancel()
         tasks[take.id] = Task {
-            defer { tasks[take.id] = nil }
+            // Whoever cancels a task has already updated `tasks` (removed the entry or put a newer task
+            // there), so only a task that ran to its end clears its own entry.
+            defer {
+                if !Task.isCancelled { tasks[take.id] = nil }
+            }
 
             do {
                 let words = try await transcribe(take.recording, locale)
                 guard !Task.isCancelled else { return }
+
                 onWords?(take.id, words)
             } catch is CancellationError {
                 // The take was deleted or the editor closed.

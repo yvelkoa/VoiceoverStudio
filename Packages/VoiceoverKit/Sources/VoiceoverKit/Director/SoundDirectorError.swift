@@ -22,16 +22,23 @@ public enum SoundDirectorError: Error, Equatable, Sendable {
             self = error
             return
         }
+
         guard let error = error as? LanguageModelSession.GenerationError else {
             self = .failed(error.localizedDescription)
             return
         }
+
         switch error {
-        case .unsupportedLanguageOrLocale: self = .unsupportedLanguage
-        case .exceededContextWindowSize: self = .transcriptTooLong
-        case .assetsUnavailable: self = .modelNotReady
-        case .guardrailViolation, .refusal: self = .declined
-        default: self = .failed(error.localizedDescription)
+        case .unsupportedLanguageOrLocale:
+            self = .unsupportedLanguage
+        case .exceededContextWindowSize:
+            self = .transcriptTooLong
+        case .assetsUnavailable:
+            self = .modelNotReady
+        case .guardrailViolation, .refusal:
+            self = .declined
+        default:
+            self = .failed(error.localizedDescription)
         }
     }
 }

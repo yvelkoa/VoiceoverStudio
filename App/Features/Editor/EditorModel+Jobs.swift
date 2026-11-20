@@ -9,6 +9,7 @@ extension EditorModel {
 
     func generate() {
         guard canGenerate, let videoURL, let voice else { return }
+
         let script = trimmedScript
         resetResult()
 
@@ -34,21 +35,35 @@ extension EditorModel {
     // MARK: - Export
 
     func export() {
-        guard let composed, hasResult, !isBusy else { return }
+        guard let composed, hasResult, activity == nil else { return }
+
         let captions = captions
         let levels = project.mix
         let range = project.isTrimmed ? project.trimRange : nil
-        let output = project.fileURL("export", extension: "mp4")
+        let output = project.fileURL(Project.exportPrefix, extension: "mp4")
         savedToPhotos = false
 
         // If the export landed and only the Photos save failed, retrying saves that file instead of rendering
         // the whole video again. `output` is unique per attempt, so it tells the two apart.
         let retry: @MainActor () -> Void = { [weak self] in
             guard let self else { return }
-            if exportedURL == output { saveToPhotos() } else { export() }
+
+            if exportedURL == output {
+                saveToPhotos()
+            } else {
+                export()
+            }
         }
+
         run(.exporting, retry: retry, operation: { [project, services] in
-            let exported = try await services.export(composed, captions, levels, range, output)
+            let exported: URL
+            do {
+                exported = try await services.export(composed, captions, levels, range, output)
+            } catch {
+                // A failed or cancelled render can leave a partial file nothing refers to.
+                try? FileManager.default.removeItem(at: output)
+                throw error
+            }
 
             // The previous export goes only once the new one exists; a failed export must not lose both.
             project.clearExport()
@@ -63,7 +78,7 @@ extension EditorModel {
 
     /// Adds the existing export to Photos again, e.g. after a relaunch or a denied permission.
     func saveToPhotos() {
-        guard let url = exportedURL, !isBusy else { return }
+        guard let url = exportedURL, activity == nil else { return }
 
         run(.saving, retry: { [weak self] in self?.saveToPhotos() }, operation: { [services] in
             try await services.saveToPhotos(url)

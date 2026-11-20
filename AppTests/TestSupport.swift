@@ -17,6 +17,7 @@ struct TemporaryFolder {
     func file(_ name: String) -> URL {
         let file = url.appending(path: name)
         FileManager.default.createFile(atPath: file.path, contents: Data([0]))
+
         return file
     }
 }
@@ -35,6 +36,7 @@ func eventually(timeout: Duration = .seconds(3), _ condition: () -> Bool) async 
         if condition() { return true }
         try? await Task.sleep(for: .milliseconds(10))
     }
+
     return condition()
 }
 
@@ -46,6 +48,7 @@ final class Gate {
 
     func wait() async {
         guard !isOpen else { return }
+
         isWaiting = true
         await withCheckedContinuation { continuation = $0 }
     }

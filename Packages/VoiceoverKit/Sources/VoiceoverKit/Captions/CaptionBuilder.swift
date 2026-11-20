@@ -12,6 +12,7 @@ public enum CaptionBuilder {
 
         func flush() {
             guard !text.isEmpty else { return }
+
             words.append(TimedWord(text: text, start: start, end: end))
             text = ""
         }
@@ -26,7 +27,9 @@ public enum CaptionBuilder {
             text += character
             end = alignment.endTimes[i]
         }
+
         flush()
+
         return words
     }
 
@@ -43,6 +46,7 @@ public enum CaptionBuilder {
 
         func flush() {
             guard let first = line.first, let last = line.last else { return }
+
             let text = line.map(\.text).joined(separator: " ")
             captions.append(Caption(id: firstID + captions.count, text: text, start: first.start, end: last.end, track: track))
             line.removeAll()
@@ -55,12 +59,15 @@ public enum CaptionBuilder {
                     flush()
                 }
             }
+
             line.append(word)
             if let last = word.text.last, ".!?".contains(last) {
                 flush()
             }
         }
+
         flush()
+
         return captions
     }
 

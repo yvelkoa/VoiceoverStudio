@@ -1,22 +1,8 @@
 import SwiftUI
 import VoiceoverKit
 
-/// Levels of the original soundtrack, the voice, the effects and the music. Applied live to the player and to the export.
-struct MixSection: View {
-    @Bindable var project: Project
-    let onChange: () -> Void
-
-    var body: some View {
-        Section {
-            MixSliders(mix: $project.mix, onChange: onChange)
-        } header: {
-            Text("Mix")
-        } footer: {
-            Text("The same levels go into the exported video.")
-        }
-    }
-}
-
+/// Levels of the original soundtrack, the voice, the effects and the music. Applied live to the player; the
+/// export takes the same levels.
 struct MixSliders: View {
     @Binding var mix: MixLevels
     let onChange: () -> Void

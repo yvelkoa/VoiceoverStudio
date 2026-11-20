@@ -122,6 +122,7 @@ struct SoundDirectorLiveTests {
         for effect in plan.effects {
             print("  \(effect.start) s, \(effect.duration) s: \(effect.prompt)  ← \(effect.cue)")
         }
+
         print("  music: \(plan.musicPrompt)")
         #expect(!plan.effects.isEmpty)
         #expect(!plan.musicPrompt.isEmpty)

@@ -82,6 +82,7 @@ final class Project: Identifiable {
                 sequence: $0.sequence
             )
         }
+
         nextSequence = document.nextSequence
         transcripts = Dictionary(uniqueKeysWithValues: document.transcripts.compactMap { key, words in
             UUID(uuidString: key).map { ($0, words) }
@@ -97,9 +98,11 @@ final class Project: Identifiable {
                 id: $0.id, prompt: $0.prompt, start: $0.start, duration: $0.duration, audio: folder.appending(path: $0.file)
             )
         }
+
         music = document.music.map {
             BackgroundMusic(id: $0.id, prompt: $0.prompt, duration: $0.duration, audio: folder.appending(path: $0.file))
         }
+
         mix = document.mix
         trimStart = document.trimStart
         trimEnd = document.trimEnd
@@ -148,6 +151,8 @@ final class Project: Identifiable {
     }
 
     /// A new file inside the project folder.
+    static let exportPrefix = "export"
+
     func fileURL(_ prefix: String, extension ext: String) -> URL {
         folder.appending(path: "\(prefix)-\(UUID().uuidString).\(ext)")
     }
@@ -155,6 +160,7 @@ final class Project: Identifiable {
     var trimRange: ClosedRange<Double> {
         let start = trimStart ?? 0
         let end = trimEnd ?? videoDuration
+
         return start...max(end, start + 0.1)
     }
 
@@ -209,6 +215,17 @@ final class Project: Identifiable {
         exportedURL = nil
     }
 
+    /// Removes rendered videos the manifest does not name: what an export leaves behind when the app is killed
+    /// halfway through. They are the largest files a project has, and nothing would ever delete them.
+    func removeStrayExports() {
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        let kept = exportedURL?.lastPathComponent
+
+        for file in files where file.lastPathComponent.hasPrefix("\(Self.exportPrefix)-") && file.lastPathComponent != kept {
+            try? FileManager.default.removeItem(at: file)
+        }
+    }
+
     // MARK: - Characters
 
     @discardableResult
@@ -219,11 +236,13 @@ final class Project: Identifiable {
         let character = Character(name: name, colorIndex: colorIndex)
         characters.append(character)
         if activeCharacterID == nil { activeCharacterID = character.id }
+
         return character
     }
 
     func update(_ character: Character) {
         guard let index = characters.firstIndex(where: { $0.id == character.id }) else { return }
+
         let voiceChanged = characters[index].voice != character.voice
         let settingsChanged = characters[index].settings != character.settings
         characters[index] = character
@@ -239,6 +258,7 @@ final class Project: Identifiable {
 
     func removeCharacter(_ id: Character.ID) {
         guard characters.count > 1 else { return }
+
         characters.removeAll { $0.id == id }
         for take in takes where take.characterID == id { remove(take) }
         if activeCharacterID == id { activeCharacterID = characters.first?.id }
@@ -251,6 +271,7 @@ final class Project: Identifiable {
         nextSequence += 1
         let take = Take(characterID: characterID, start: start, duration: duration, recording: recording, sequence: nextSequence)
         takes.append(take)
+
         return take
     }
 
@@ -270,11 +291,13 @@ final class Project: Identifiable {
 
     func setTranscript(_ words: [TimedWord], for takeID: Take.ID) {
         guard takes.contains(where: { $0.id == takeID }) else { return }
+
         transcripts[takeID] = words
     }
 
     func setConvertedAudio(_ url: URL, drift: Double, for takeID: Take.ID) {
         guard takes.contains(where: { $0.id == takeID }) else { return }
+
         convertedAudio[takeID] = url
         conversionDrift[takeID] = drift
     }
@@ -300,6 +323,7 @@ final class Project: Identifiable {
 
     func move(_ effect: SoundEffect, to start: Double) {
         guard let index = effects.firstIndex(where: { $0.id == effect.id }) else { return }
+
         effects[index].start = min(max(start, 0), max(videoDuration - effect.duration, 0))
     }
 
@@ -325,6 +349,7 @@ extension Project {
 
     func removeMusic() {
         guard let music else { return }
+
         waveforms[music.id] = nil
         try? FileManager.default.removeItem(at: music.audio)
         self.music = nil

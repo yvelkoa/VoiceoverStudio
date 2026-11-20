@@ -36,7 +36,7 @@ flowchart LR
         Transcriber["Transcriber<br/>SpeechTranscriber (on device)<br/>or SFSpeechRecognizer"]
         Swapper["VoiceSwapper<br/>≤3 requests in flight"]
         Composer["VideoComposer (nonisolated)<br/>clips → tracks by kind,<br/>live mix, CATextLayer export"]
-        Preview["PreviewPlayer<br/>caption overlay per track"]
+        Preview["EditorStage, PreviewScreen<br/>caption overlay per track"]
     end
 
     subgraph Kit["VoiceoverKit (Swift package, no UI)"]

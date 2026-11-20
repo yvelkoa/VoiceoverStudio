@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Home: every project on this device, newest first. Tap to edit, swipe to delete, long-press to rename.
+/// Home: every project on this device as a grid of posters, newest first. Tap to edit, long-press to rename
+/// or delete.
 struct ProjectListView: View {
     @Environment(AppModel.self) private var app
 
@@ -9,6 +10,8 @@ struct ProjectListView: View {
     @State private var showsSettings = false
     @State private var renaming: ProjectSummary?
     @State private var newTitle = ""
+
+    private static let columns = [GridItem(.adaptive(minimum: 150, maximum: 240), spacing: 16, alignment: .top)]
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -23,21 +26,29 @@ struct ProjectListView: View {
                             .buttonStyle(.borderedProminent)
                     }
                 } else {
-                    List {
-                        ForEach(app.store.summaries) { summary in
-                            NavigationLink(value: AppRoute.project(summary.id)) { ProjectRow(summary: summary) }
+                    ScrollView {
+                        LazyVGrid(columns: Self.columns, spacing: 20) {
+                            ForEach(app.store.summaries) { summary in
+                                NavigationLink(value: AppRoute.project(summary.id)) {
+                                    ProjectCard(summary: summary)
+                                }
+                                .buttonStyle(.plain)
                                 .contextMenu {
                                     Button("Rename", systemImage: "pencil") {
                                         newTitle = summary.title
                                         renaming = summary
                                     }
-                                    Button("Delete", systemImage: "trash", role: .destructive) { app.store.delete(summary.id) }
+                                    Button("Delete", systemImage: "trash", role: .destructive) {
+                                        app.store.delete(summary.id)
+                                    }
                                 }
+                            }
                         }
-                        .onDelete { offsets in
-                            for index in offsets { app.store.delete(app.store.summaries[index].id) }
-                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .animation(.default, value: app.store.summaries)
                     }
+                    .background(Color(.systemGroupedBackground))
                 }
             }
             .navigationTitle("Voiceover Studio")
@@ -51,7 +62,8 @@ struct ProjectListView: View {
             }
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
-                case .project(let id): ProjectScreen(projectID: id)
+                case .project(let id):
+                    ProjectScreen(projectID: id)
                 }
             }
             .sheet(isPresented: $showsSettings) { SettingsView() }
@@ -77,6 +89,7 @@ struct ProjectListView: View {
     private func openDebugProject() async {
         #if DEBUG
         guard ProcessInfo.processInfo.environment["VOICEOVER_DEBUG_VIDEO"] != nil, path.isEmpty else { return }
+
         createProject()
         #endif
     }

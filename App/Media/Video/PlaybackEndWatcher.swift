@@ -26,6 +26,7 @@ final class PlaybackEndWatcher {
 
     private func itemEnded(_ item: ObjectIdentifier?) {
         guard let item, let current = player?.currentItem, ObjectIdentifier(current) == item else { return }
+
         onEnd()
     }
 }

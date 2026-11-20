@@ -64,9 +64,12 @@ final class WorkRunner {
         operation: @escaping () async throws -> Void
     ) {
         switch slot {
-        case .compose: composeTask?.cancel()
-        case .job: jobTask?.cancel()
+        case .compose:
+            composeTask?.cancel()
+        case .job:
+            jobTask?.cancel()
         }
+
         self.activity = activity
 
         let task = Task {
@@ -77,6 +80,7 @@ final class WorkRunner {
             } catch {
                 // AVFoundation and Photos report a cancelled task with their own errors; those are not failures.
                 guard !Task.isCancelled else { return }
+
                 let recovery = (error as? ElevenLabsError)?.recovery ?? .retry
                 failure = Failure(message: error.localizedDescription, recovery: recovery, retry: retry)
             }
@@ -84,8 +88,10 @@ final class WorkRunner {
         }
 
         switch slot {
-        case .compose: composeTask = task
-        case .job: jobTask = task
+        case .compose:
+            composeTask = task
+        case .job:
+            jobTask = task
         }
     }
 
@@ -125,6 +131,7 @@ final class WorkRunner {
 
     private func runDeferred() {
         guard let step = deferred else { return }
+
         deferred = nil
         step()
     }

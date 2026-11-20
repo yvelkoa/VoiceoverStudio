@@ -24,10 +24,14 @@ nonisolated struct MixLevels: Equatable, Codable, Sendable {
 
     func level(for kind: AudioKind) -> Float {
         switch kind {
-        case .original: original
-        case .voice: voice
-        case .effect: effect
-        case .music: music
+        case .original:
+            original
+        case .voice:
+            voice
+        case .effect:
+            effect
+        case .music:
+            music
         }
     }
 }

@@ -14,9 +14,23 @@ extension AVPlayer {
             ) { time in
                 continuation.yield(time.seconds)
             }
+
             continuation.onTermination = { [weak self] _ in
                 Task { @MainActor in self?.removeTimeObserver(token) }
             }
+        }
+    }
+
+    /// Whether the player is running, now and on every change. The periodic times above stop arriving when
+    /// playback does, so a view that derived this from them would keep showing Pause at the end of the video.
+    func playingUpdates() -> AsyncStream<Bool> {
+        AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
+            // Read from the change, not the player: KVO may call back off the main actor.
+            let observation = observe(\.rate, options: [.initial, .new]) { _, change in
+                continuation.yield((change.newValue ?? 0) > 0)
+            }
+
+            continuation.onTermination = { _ in observation.invalidate() }
         }
     }
 }

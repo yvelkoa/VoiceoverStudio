@@ -11,6 +11,7 @@ extension EditorModel {
     func generateMusic(prompt: String) {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, activity == nil, let videoURL, videoDuration > 0 else { return }
+
         let seconds = musicLength
 
         let retry: @MainActor () -> Void = { [weak self] in self?.generateMusic(prompt: trimmed) }
@@ -36,6 +37,7 @@ extension EditorModel {
 
     func removeMusic() {
         guard !isBusy, project.music != nil else { return }
+
         project.removeMusic()
         recompose()
     }

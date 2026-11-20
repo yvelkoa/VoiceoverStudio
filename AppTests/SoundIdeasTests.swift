@@ -12,6 +12,7 @@ struct SoundIdeasTests {
         let project = Project(folder: folder.url, title: "Test")
         project.setVideo(folder.file("video.mov"), duration: 12)
         let client = transport.map { ElevenLabsClient(transport: $0, apiKey: { "key" }) } ?? ElevenLabsClient(apiKey: { nil })
+
         return EditorModel(project: project, client: client, store: nil, services: services)
     }
 
@@ -33,6 +34,7 @@ struct SoundIdeasTests {
                 continuation.finish()
             }
         }
+
         let model = makeModel(services: services)
         let captions = [Caption(id: 0, text: "I'm home.", start: 0, end: 1)]
         model.captions = captions
@@ -58,6 +60,7 @@ struct SoundIdeasTests {
         services.planSounds = { _, _, _ in
             calls.append(calls.count)
             let isFirst = calls.count == 1
+
             return AsyncThrowingStream { continuation in
                 let task = Task { @MainActor in
                     // The first plan never finishes on its own; it is superseded.
@@ -65,9 +68,11 @@ struct SoundIdeasTests {
                     continuation.yield(final)
                     continuation.finish()
                 }
+
                 continuation.onTermination = { _ in task.cancel() }
             }
         }
+
         let model = makeModel(services: services)
 
         model.suggestSounds()
@@ -90,6 +95,7 @@ struct SoundIdeasTests {
             locales.append(locale)
             return AsyncThrowingStream { $0.finish() }
         }
+
         let model = makeModel(services: services)
         model.mode = .type
 
@@ -105,6 +111,7 @@ struct SoundIdeasTests {
         services.planSounds = { _, _, _ in
             AsyncThrowingStream { $0.finish(throwing: SoundDirectorError.unsupportedLanguage) }
         }
+
         let model = makeModel(services: services)
 
         model.suggestSounds()
@@ -122,6 +129,7 @@ struct SoundIdeasTests {
             edits.append(clips)
             return EditorServices.emptyEdit()
         }
+
         // The first effect is generated, the second fails, then succeeds on the retry.
         let transport = StubTransport([(200, Data("ID3".utf8)), (500, Data()), (200, Data("ID3".utf8))])
         let model = makeModel(services: services, transport: transport)

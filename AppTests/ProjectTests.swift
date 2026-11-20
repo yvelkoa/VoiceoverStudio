@@ -195,6 +195,7 @@ struct ProjectTests {
     private func encoded(_ document: ProjectDocument) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
+
         return try encoder.encode(document)
     }
 }

@@ -21,7 +21,8 @@ flowchart LR
 | Limit | Effect | What the app does |
 |---|---|---|
 | Simulator microphone | recordings silent on a Mac whose default input is an aggregate device | the live level trace makes it obvious; test on device |
-| Simulator video compositor | composited frames never reach `AVPlayerLayer` (`IQ-CA -19230`) | preview avoids the compositor; export still uses it, verify on device |
+| Simulator video compositor | composited frames never reach `AVPlayerLayer` (`IQ-CA -19230`), and an export with captions can crash the app inside Core Animation (`CARenderer` → `IOSurfaceCreate`, `_xpc_api_misuse`) | preview avoids the compositor; export needs it, so export is verified on a device only |
+| Simulator speech recognition | `AssetInventory` reports the on-device model as `unsupported` although the locale is listed, and `SFSpeechRecognizer` fails too (`kAFAssistantErrorDomain 1101`) | `Transcriber` checks the status and falls back instead of asking for an install that can't happen; captions are verified on a device |
 | On-device transcription languages | `SpeechTranscriber` covers English and a handful of others | ru, uk fall back to `SFSpeechRecognizer` (server, ~1 min cap); offline it fails |
 | AVKit scrubber in Preview | shows the full length even when the export range is trimmed | playback is confined with `forwardPlaybackEndTime` |
 | Foundation Models languages | the on-device model doesn't read Russian or Ukrainian | Sound ideas says so up front for takes recorded in those languages |
@@ -82,3 +83,6 @@ flowchart LR
 | 11 | `Text(name ?? "Voice")` and helpers taking `String` | the fallback is a `String`, so it is neither localised nor extracted; wrap it in `String(localized:)` |
 | 12 | A wrapper like `localized(_ key:)` around `String(localized:bundle:)` | the compiler extracts keys only from the direct call; `strings.sh` would drop them as stale |
 | 13 | `Bundle.module` inside the package's test target | names the tests' bundle, not the package's; use `PackageResources.bundle` |
+| 14 | `compose()` dropped the export, and opening a project composes | the export was deleted on every open; a rebuild that follows no edit passes `keepingExport` |
+| 15 | `SpeechTranscriber.supportedLocale` says yes, the device says no | check `AssetInventory.status(forModules:)` before `downloadAndInstall()`; `unsupported` fails as "not subscribed" even with a reservation |
+| 16 | The autosaver saved on close unconditionally | every save stamps `updatedAt`, so the list sorted by last opened; compare with the last written document first |

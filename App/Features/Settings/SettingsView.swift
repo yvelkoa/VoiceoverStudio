@@ -34,9 +34,11 @@ struct SettingsView: View {
 
                 Section {
                     Picker("Recording language", selection: $recordingLanguage) {
-                        Text("Device language").tag("")
+                        Text("Device language")
+                            .tag("")
                         ForEach(RecordingLanguage.choices, id: \.self) { id in
-                            Text(Locale.current.localizedString(forIdentifier: id) ?? id).tag(id)
+                            Text(Locale.current.localizedString(forIdentifier: id) ?? id)
+                                .tag(id)
                         }
                     }
                 } footer: {
@@ -72,9 +74,11 @@ struct SettingsView: View {
         case .checking:
             HStack { ProgressView(); Text("Checking key…") }
         case .valid:
-            Label("Key works", systemImage: "checkmark.seal.fill").foregroundStyle(.green)
+            Label("Key works", systemImage: "checkmark.seal.fill")
+                .foregroundStyle(.green)
         case .failed(let message):
-            Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
         }
     }
 

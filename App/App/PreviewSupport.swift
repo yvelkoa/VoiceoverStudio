@@ -27,6 +27,7 @@ extension AppModel {
             let project = app.store.create()
             app.store.rename(project.id, to: title)
         }
+
         return app
     }
 }

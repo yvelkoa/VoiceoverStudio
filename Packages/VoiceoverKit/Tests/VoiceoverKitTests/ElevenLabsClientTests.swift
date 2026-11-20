@@ -167,9 +167,12 @@ final class MockTransport: HTTPTransport, @unchecked Sendable {
         let next: Response = try lock.withLock {
             recorded.append(request)
             if let error { throw error }
+
             return responses.removeFirst()
         }
+
         let response = HTTPURLResponse(url: request.url!, statusCode: next.status, httpVersion: nil, headerFields: nil)!
+
         return (next.body, response)
     }
 }

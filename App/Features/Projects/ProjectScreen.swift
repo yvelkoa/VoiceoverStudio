@@ -17,8 +17,11 @@ struct ProjectScreen: View {
                 ProgressView()
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemGroupedBackground))
         .task(id: projectID) {
             guard model == nil else { return }
+
             // Let the push animation run on an empty screen; the player and waveforms start right after.
             try? await Task.sleep(for: .milliseconds(300))
             do {

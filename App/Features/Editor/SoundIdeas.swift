@@ -36,18 +36,23 @@ final class SoundIdeas {
             do {
                 for try await plan in stream {
                     guard !Task.isCancelled else { return }
+
                     self.plan = plan
                 }
+
                 // A cancelled consumer leaves the loop as if the stream had ended; this run was superseded
                 // and must not report on the state the newer one owns.
                 guard !Task.isCancelled else { return }
+
                 if plan?.effects.isEmpty ?? true, plan?.musicPrompt.isEmpty ?? true {
                     failure = String(localized: "No ideas this time. Try again, or add sounds by hand.")
                 }
             } catch {
                 guard !Task.isCancelled, !(error is CancellationError) else { return }
+
                 failure = error.localizedDescription
             }
+
             isPlanning = false
         }
     }

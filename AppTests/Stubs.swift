@@ -19,7 +19,9 @@ nonisolated final class StubTransport: HTTPTransport {
             state.requests.append(request)
             return state.responses.isEmpty ? (500, Data()) : state.responses.removeFirst()
         }
+
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+
         return (body, response)
     }
 }

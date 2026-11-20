@@ -13,6 +13,7 @@ extension EditorModel {
         let retry: @MainActor () -> Void = { [weak self] in
             self?.addEffect(prompt: trimmed, durationSeconds: durationSeconds, at: start)
         }
+
         run(.generatingEffect, retry: retry, operation: { [client, project, services] in
             let data = try await client.soundEffect(prompt: trimmed, durationSeconds: durationSeconds)
             let url = try await Self.write(data, to: project.fileURL("effect", extension: "mp3"))
@@ -28,12 +29,14 @@ extension EditorModel {
 
     func remove(_ effect: SoundEffect) {
         guard !isBusy else { return }
+
         project.remove(effect)
         recompose()
     }
 
     func move(_ effect: SoundEffect, to start: Double) {
         guard !isBusy else { return }
+
         project.move(effect, to: start)
         recompose()
     }

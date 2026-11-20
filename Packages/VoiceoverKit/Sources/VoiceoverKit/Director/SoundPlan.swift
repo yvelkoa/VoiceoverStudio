@@ -51,9 +51,12 @@ public struct SoundPlan: Equatable, Sendable {
             let start = min(max(effect.start, 0), latestStart)
             let room = max(videoDuration - start, Self.effectLength.lowerBound)
             let duration = min(min(max(effect.duration, Self.effectLength.lowerBound), Self.effectLength.upperBound), room)
+
             return Effect(id: 0, start: start, duration: duration, prompt: prompt, cue: effect.cue)
         }
+
         let ordered = kept.prefix(Self.maximumEffects).sorted { $0.start < $1.start }
+
         return SoundPlan(
             effects: ordered.enumerated().map { index, effect in
                 Effect(id: index, start: effect.start, duration: effect.duration, prompt: effect.prompt, cue: effect.cue)

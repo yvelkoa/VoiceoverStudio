@@ -69,6 +69,7 @@ struct TimelineStrip: View {
             .gesture(scrubGesture, isEnabled: !isLocked)
             .onTapGesture { location in
                 guard !isLocked else { return }
+
                 let tapped = displayedTime + Double((location.x - center) / pointsPerSecond)
                 onScrub(min(max(tapped, 0), duration))
             }
@@ -82,6 +83,7 @@ struct TimelineStrip: View {
     private var displayedTime: Double {
         if isScrubbing { return scrubTime }
         if isPlaying, let player { return player.currentTime().seconds }
+
         return currentTime
     }
 
@@ -94,6 +96,7 @@ struct TimelineStrip: View {
                     scrubTime = displayedTime
                     isScrubbing = true
                 }
+
                 let time = (dragStartTime ?? 0) - Double(value.translation.width / pointsPerSecond)
                 scrubTime = min(max(time, 0), duration)
                 onScrub(scrubTime)
@@ -113,6 +116,7 @@ struct TimelineStrip: View {
             isScrubbing = false
             return
         }
+
         momentum = Task {
             var velocity = initial
             var time = scrubTime
@@ -121,6 +125,7 @@ struct TimelineStrip: View {
             while !Task.isCancelled, abs(velocity) > 0.02 {
                 try? await Task.sleep(for: .seconds(step))
                 guard !Task.isCancelled else { return }
+
                 time = min(max(time + velocity * step, 0), duration)
                 velocity *= decay
                 scrubTime = time
@@ -137,10 +142,15 @@ struct TimelineStrip: View {
             let head = CGFloat(trim.lowerBound) * pointsPerSecond
             let tail = contentWidth - CGFloat(trim.upperBound) * pointsPerSecond
             HStack(spacing: 0) {
-                Rectangle().fill(.black.opacity(0.55)).frame(width: max(head, 0))
-                Rectangle().stroke(Color.accentColor, lineWidth: 2)
+                Rectangle()
+                    .fill(.black.opacity(0.55))
+                    .frame(width: max(head, 0))
+                Rectangle()
+                    .stroke(Color.accentColor, lineWidth: 2)
                     .frame(width: max(contentWidth - head - tail, 0))
-                Rectangle().fill(.black.opacity(0.55)).frame(width: max(tail, 0))
+                Rectangle()
+                    .fill(.black.opacity(0.55))
+                    .frame(width: max(tail, 0))
             }
             .allowsHitTesting(false)
         }
@@ -240,8 +250,12 @@ struct TimelineStrip: View {
 
     private var playhead: some View {
         VStack(spacing: 0) {
-            Triangle().fill(.primary).frame(width: 10, height: 6)
-            Rectangle().fill(.primary).frame(width: 2)
+            Triangle()
+                .fill(.primary)
+                .frame(width: 10, height: 6)
+            Rectangle()
+                .fill(.primary)
+                .frame(width: 2)
         }
         .allowsHitTesting(false)
     }
@@ -265,6 +279,7 @@ extension TimelineStrip {
     func musicLane(_ music: BackgroundMusic) -> some View {
         let start = trim?.lowerBound ?? 0
         let length = min(music.duration, duration - start)
+
         return ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 4)
                 .fill(.quaternary)

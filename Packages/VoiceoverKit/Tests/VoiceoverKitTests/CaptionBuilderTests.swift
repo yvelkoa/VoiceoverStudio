@@ -49,6 +49,7 @@ struct CaptionBuilderTests {
     private func makeAlignment(_ text: String, step: Double) -> CharacterAlignment {
         let characters = text.map(String.init)
         let starts = characters.indices.map { Double($0) * step }
+
         return CharacterAlignment(characters: characters, startTimes: starts, endTimes: starts.map { $0 + step })
     }
 

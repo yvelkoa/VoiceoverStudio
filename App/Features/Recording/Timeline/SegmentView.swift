@@ -9,12 +9,14 @@ struct SegmentView: View {
     let color: Color
     let pointsPerSecond: CGFloat
     var isLive = false
+    /// The lane it sits on; the editor's overview draws thinner lanes than the recorder.
+    var height = TimelineStrip.laneHeight
 
     var body: some View {
         let width = max(CGFloat(segment.duration) * pointsPerSecond, 3)
         RoundedRectangle(cornerRadius: 4)
             .fill(color.opacity(isLive ? 0.6 : 0.35))
-            .frame(width: width, height: TimelineStrip.laneHeight)
+            .frame(width: width, height: height)
             .overlay {
                 if let waveform {
                     Canvas { context, size in

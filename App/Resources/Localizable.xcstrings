@@ -810,22 +810,6 @@
         }
       }
     },
-    "Export" : {
-      "localizations" : {
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Экспорт"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Експорт"
-          }
-        }
-      }
-    },
     "Export again" : {
       "localizations" : {
         "ru" : {
@@ -918,22 +902,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Створити"
-          }
-        }
-      }
-    },
-    "Generate a voiceover to export." : {
-      "localizations" : {
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Создайте озвучку, чтобы экспортировать."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Створіть озвучення, щоб експортувати."
           }
         }
       }
@@ -1206,6 +1174,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Новий проєкт"
+          }
+        }
+      }
+    },
+    "No effects yet. Ask for ideas here, or add one at the playhead in the recorder." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эффектов пока нет. Попросите идеи здесь или добавьте эффект в позиции курсора на экране записи."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ефектів поки немає. Попросіть ідеї тут або додайте ефект у позиції курсора на екрані запису."
           }
         }
       }
@@ -1529,22 +1513,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Запишіть дубль або створіть озвучення, і Apple Intelligence запропонує звуки до того, що говориться."
-          }
-        }
-      }
-    },
-    "Record a take to export." : {
-      "localizations" : {
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Запишите дубль, чтобы экспортировать."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Запишіть дубль, щоб експортувати."
           }
         }
       }
@@ -1917,6 +1885,22 @@
         }
       }
     },
+    "Sounds" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Звуки"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Звуки"
+          }
+        }
+      }
+    },
     "Speak over the video in your own voice, then swap it for an ElevenLabs voice." : {
       "localizations" : {
         "ru" : {
@@ -2093,22 +2077,6 @@
         }
       }
     },
-    "The same levels go into the exported video." : {
-      "localizations" : {
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Эти же уровни попадут в экспортированное видео."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ці самі рівні потраплять в експортоване відео."
-          }
-        }
-      }
-    },
     "This file has no video track." : {
       "localizations" : {
         "ru" : {
@@ -2125,6 +2093,22 @@
         }
       }
     },
+    "Timeline" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Таймлайн"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Таймлайн"
+          }
+        }
+      }
+    },
     "Title" : {
       "localizations" : {
         "ru" : {
@@ -2137,6 +2121,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Назва"
+          }
+        }
+      }
+    },
+    "Tools" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Инструменты"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Інструменти"
           }
         }
       }
@@ -2233,22 +2233,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Оновлюємо превʼю…"
-          }
-        }
-      }
-    },
-    "Video" : {
-      "localizations" : {
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Видео"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Відео"
           }
         }
       }
