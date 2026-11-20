@@ -76,9 +76,11 @@ effects already on the lane (same prompt, same start), so nothing is billed twic
 ## Testing
 
 - Kit, no model: the request text, the cut, `fitted(to:)`, error messages (`SoundDirectorTests`).
-- Kit, real model: `SoundDirectorLiveTests` runs only where Apple Intelligence is available and `CI` is unset.
-  It prints the plan, which is the quickest way to judge a prompt change: `swift test --filter SoundDirectorLive`
-  in `Packages/VoiceoverKit`.
+- Kit, real model: `SoundDirectorLiveTests` is opt-in and needs Apple Intelligence on the machine. It prints
+  the plan, which is the quickest way to judge a prompt change:
+  `VOICEOVER_LIVE_MODEL=1 swift test --filter SoundDirectorLive` in `Packages/VoiceoverKit`.
+  It stays out of the default run because the model's timing is not stable: the same prompt took from 6 seconds
+  to over a minute, and about one run in three hit the one-minute limit.
 - App: `SoundIdeasTests` stubs `planSounds` and the HTTP transport: streaming, language, failures, partial
   success and retry.
 - By hand: the iOS 26.5 simulator on this Mac (see known issues for why not 27.2), or a device.

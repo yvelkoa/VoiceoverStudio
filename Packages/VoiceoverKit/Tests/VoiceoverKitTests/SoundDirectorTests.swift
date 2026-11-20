@@ -98,9 +98,17 @@ private struct StubError: LocalizedError {
     var errorDescription: String? { "stub" }
 }
 
-/// Runs the real on-device model. Skipped where Apple Intelligence isn't on (CI runners, most Macs);
-/// on a Mac that has it, this is the quickest way to see what the prompt produces.
-@Suite(.enabled(if: ProcessInfo.processInfo.environment["CI"] == nil && SoundDirector.unavailability == nil))
+/// Runs the real on-device model: the quickest way to see what the prompt produces.
+///
+/// Opt-in (`VOICEOVER_LIVE_MODEL=1 swift test --filter SoundDirectorLive`), and only where Apple Intelligence
+/// is on. It is not part of the default run because the model is not a fixture: the same prompt took anywhere
+/// from 6 seconds to over a minute here, and a third of the runs hit the time limit before the music prompt
+/// arrived. A check that fails on its own one run in three says nothing about the code.
+@Suite(
+    .enabled(
+        if: ProcessInfo.processInfo.environment["VOICEOVER_LIVE_MODEL"] == "1" && SoundDirector.unavailability == nil
+    )
+)
 struct SoundDirectorLiveTests {
     @Test(.timeLimit(.minutes(1))) func aStormyHomecomingGetsWeatherAndHouseSounds() async throws {
         let captions = [
